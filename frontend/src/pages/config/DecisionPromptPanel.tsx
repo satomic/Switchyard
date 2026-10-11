@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { getDefaultDecisionPrompt, previewDecisionPrompt, type PromptPreview } from '../../api'
+import {
+  getDefaultDecisionPrompt,
+  isSystemOne,
+  previewDecisionPrompt,
+  testDecision,
+  type DecisionTestResult,
+  type PromptPreview,
+} from '../../api'
 import { aiRouterActive } from './strategy'
 import type { SectionProps } from './types'
 
@@ -28,6 +35,9 @@ export default function DecisionPromptPanel({ cfg, set, notify, goto }: SectionP
   const [defaultTemplate, setDefaultTemplate] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  /** The last real decision made from this panel, and whether one is in flight. */
+  const [trial, setTrial] = useState<DecisionTestResult | null>(null)
+  const [trying, setTrying] = useState(false)
   const taRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -57,6 +67,25 @@ export default function DecisionPromptPanel({ cfg, set, notify, goto }: SectionP
     return () => clearTimeout(timer)
   }, [cfg.models, cfg.ai_router, sample])
 
+  // A result describes the settings it was made with; once they change it would mislead.
+  useEffect(() => setTrial(null), [cfg.models, cfg.ai_router, sample])
+
+  const runTrial = async () => {
+    setTrying(true)
+    try {
+      setTrial(await testDecision({ models: cfg.models, ai_router: cfg.ai_router, sample_prompt: sample }))
+    } catch (e) {
+      notify('error', String(e))
+    } finally {
+      setTrying(false)
+    }
+  }
+
+  /** The trial's options, most probable first: the runner-up is what shows how sure it was. */
+  const ranked = Object.entries(trial?.analysis.probabilities ?? {})
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+
   const restoreDefault = async () => {
     try {
       const text = defaultTemplate || (await getDefaultDecisionPrompt()).prompt
@@ -78,7 +107,7 @@ export default function DecisionPromptPanel({ cfg, set, notify, goto }: SectionP
   /** Jev takes no system prompt: it answers one Choice question whose options are the catalog.
    *  The template is kept (and editable) for when the engine is switched back, but the preview
    *  shows the request that is actually sent. */
-  const useJev = cfg.ai_router.decision_engine === 'typesafe' || cfg.ai_router.decision_engine === 'laya'
+  const useJev = isSystemOne(cfg.ai_router.decision_engine)
 
   return (
     <div className="panel">
@@ -211,7 +240,7 @@ export default function DecisionPromptPanel({ cfg, set, notify, goto }: SectionP
             {useJev && preview.systemone_request ? (
               <div className="prompt-preview">
                 <div className="msg-role">
-                  POST /v1/systemone
+                  POST {preview.systemone_url ? new URL(preview.systemone_url).pathname : '/v1/systemone'}
                   {preview.systemone_key_missing && (
                     <span className="badge warn">{t('config.prompt.jevNoKey')}</span>
                   )}
@@ -251,7 +280,36 @@ export default function DecisionPromptPanel({ cfg, set, notify, goto }: SectionP
                   </button>
                 )
               })}
+              <span className="spacer" />
+              <button
+                className="btn sm"
+                onClick={runTrial}
+                disabled={!sample.trim() || trying}
+                title={t('config.prompt.trialHint')}
+              >
+                {trying ? t('config.prompt.trialRunning') : t('config.prompt.trial')}
+              </button>
             </div>
+
+            {trial && (
+              <div className={`toast ${trial.ok ? 'ok' : 'error'}`}>
+                {trial.ok ? (
+                  <span>
+                    {t('config.prompt.trialPicked')} <span className="badge model">{trial.model}</span>{' '}
+                    <span className="dim mono">
+                      {t('config.prompt.trialLatency', { ms: trial.latency_ms })}
+                      {ranked.length > 0 &&
+                        ' · ' + ranked.map(([name, p]) => `${name} ${p.toFixed(2)}`).join(' / ')}
+                    </span>
+                  </span>
+                ) : (
+                  <span>
+                    {t('config.prompt.trialFailed', { model: trial.model })}{' '}
+                    <span className="mono">{trial.analysis.error}</span>
+                  </span>
+                )}
+              </div>
+            )}
 
             {preview.user && !useJev && (
               <div className="prompt-preview">

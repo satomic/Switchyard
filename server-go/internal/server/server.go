@@ -250,6 +250,7 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("PUT /v1/config", wrap(a.putConfig))
 	mux.HandleFunc("POST /v1/config/decision-prompt/preview", wrap(a.previewDecisionPrompt))
 	mux.HandleFunc("GET /v1/config/decision-prompt/default", wrap(a.defaultDecisionPrompt))
+	mux.HandleFunc("POST /v1/config/decision/test", wrap(a.testDecision))
 
 	// Trace queries.
 	mux.HandleFunc("GET /v1/traces", wrap(a.listTraces))

@@ -1258,9 +1258,9 @@
       "maxPromptChars": "Prompt 截断长度",
       "maxPromptCharsHint": "超出则首尾各留一半",
       "typesafe": {
-        "toggle": "使用 System One 决策模型（TypeSafe Jev 或自部署 Laya）",
+        "toggle": "使用 System One 决策模型（TypeSafe Jev、自部署 Laya 或 Microsoft-Decision-1）",
         "badge": "高速",
-        "desc": "System One 模型专为「在固定集合中选一项」设计：模型目录作为一个 Choice 问题发送，返回所选模型以及每个选项的概率。可以使用云端的 <jev>TypeSafe Jev</jev> API，也可以使用自己部署、协议相同的 <laya>Laya</laya>。启用后不使用下方的决策提示词。取消勾选即回到 LLM 决策模型，所有设置都会保留。",
+        "desc": "System One 模型专为「在固定集合中选一项」设计：模型目录作为一个 Choice 问题发送，返回所选模型以及每个选项的概率。可以使用云端的 <jev>TypeSafe Jev</jev> API、自己部署的 <laya>Laya</laya>，或部署在你自己 Microsoft Foundry 中的 <ms>Microsoft-Decision-1</ms>，三者协议相同。启用后不使用下方的决策提示词。取消勾选即回到 LLM 决策模型，所有设置都会保留。",
         "apiKey": "TypeSafe API Key",
         "apiKeyHint": "在 console.typesafe.ai 创建；留空则使用环境变量 TYPESAFE_API_KEY",
         "model": "Jev 模型",
@@ -1272,7 +1272,9 @@
         "typesafe": "TypeSafe Jev（云端 API）",
         "typesafeDesc": "TypeSafe 的云端 API，需要 TypeSafe API Key；做模型路由时最准确。",
         "laya": "自部署 Laya",
-        "layaDesc": "运行在你自己机器上的开源 Jev 替代品（laya-serve）。不按次计费，数据不出内网；基础检查点做模型路由的准确度较低。"
+        "layaDesc": "运行在你自己机器上的开源 Jev 替代品（laya-serve）。不按次计费，数据不出内网；基础检查点做模型路由的准确度较低。",
+        "microsoft": "Microsoft-Decision-1（Microsoft Foundry）",
+        "microsoftDesc": "微软的决策模型，部署在你自己的 Foundry 资源里，费用走你的 Azure 订阅；请求留在你租户所在的区域。可以直接复用已有 Foundry 后端连接的地址和 Key。"
       },
       "laya": {
         "baseUrl": "Laya 地址",
@@ -1282,6 +1284,18 @@
         "model": "检查点",
         "modelHint": "自动：按请求的语言选择 english 或 multilingual",
         "modelAuto": "自动（按语言）"
+      },
+      "microsoft": {
+        "provider": "复用后端连接",
+        "providerHint": "从同一 Foundry 资源上的后端连接取地址和 Key；下方填写的字段优先",
+        "providerNone": "不复用，手动填写",
+        "baseUrl": "Foundry 地址",
+        "baseUrlHint": "资源的终结点，例如 https://<resource>.services.ai.azure.com/models；带 /models 或 /openai/v1 后缀也可以",
+        "apiKey": "API Key",
+        "apiKeyHint": "Foundry 资源的 Key，以 api-key 请求头发送",
+        "model": "部署名称",
+        "modelHint": "你在 Foundry 中给这个部署起的名字；默认 Microsoft-Decision-1",
+        "fromProvider": "取自 {{value}}"
       }
     },
     "rules": {
@@ -1345,8 +1359,14 @@
         "proof": "证明：任意连续函数在闭区间上一致连续"
       },
       "jevUnused": "System One 模型不使用",
-      "jevLead": "TypeSafe Jev 和 Laya 都不接收系统提示词。它们回答一个 Choice 问题，选项是模型目录中的各个模型，每个选项的说明取自该模型的 <code>description</code>——因此真正影响决策的是模型描述。下方模板会保留，切回 LLM 决策模型时继续生效。预览展示的是实际发送的请求（不含 API Key）。",
-      "jevNoKey": "未设置 API Key"
+      "jevLead": "TypeSafe Jev、Laya 和 Microsoft-Decision-1 都不接收系统提示词。它们回答一个 Choice 问题，选项是模型目录中的各个模型，每个选项的说明取自该模型的 <code>description</code>——因此真正影响决策的是模型描述。下方模板会保留，切回 LLM 决策模型时继续生效。预览展示的是实际发送的请求（不含 API Key）。",
+      "jevNoKey": "未设置 API Key",
+      "trial": "实际决策一次",
+      "trialHint": "用上方尚未保存的设置，把示例请求按线上流量完全相同的方式发给决策引擎",
+      "trialRunning": "决策中…",
+      "trialPicked": "选中",
+      "trialLatency": "{{ms}} 毫秒",
+      "trialFailed": "决策失败，该请求会交给默认模型 {{model}}："
     },
     "list": {
       "search": "搜索",

@@ -147,7 +147,8 @@ ai_router:
   # (~300 ms), using each model's description as the option's rubric. The LLM fields below are
   # then unused but kept, so switching back is one change.
   # "laya" asks the same question of a self-hosted Laya (github.com/NandhaKishorM/laya), whose
-  # laya-serve speaks the same /v1/systemone protocol.
+  # laya-serve speaks the same /v1/systemone protocol; "microsoft" (see below) asks
+  # Microsoft-Decision-1 in Microsoft Foundry.
   # decision_engine: typesafe
   # typesafe:
   #   api_key: ''              # empty = the TYPESAFE_API_KEY environment variable
@@ -157,6 +158,13 @@ ai_router:
   #   base_url: http://127.0.0.1:8100   # required when decision_engine is laya
   #   api_key: ''              # only if laya-serve was started with LAYA_API_KEY
   #   model: ''                # optional: english / multilingual / typed-decisions; empty = by language
+  # "microsoft" asks it of a Microsoft-Decision-1 deployment in your Microsoft Foundry resource
+  # (POST <resource>/providers/microsoft/v1/systemone, same protocol, api-key header).
+  # microsoft:
+  #   provider: foundry          # optional: borrow base_url / api_key from this connection
+  #   base_url: https://<resource>.services.ai.azure.com/models   # the /models suffix is fine
+  #   api_key: ''                # the Foundry resource key
+  #   model: Microsoft-Decision-1  # your deployment name (default Microsoft-Decision-1)
   decision_model: gpt-4.1
   decision_provider: foundry   # Optional; omit to use default_provider
   timeout_seconds: 5

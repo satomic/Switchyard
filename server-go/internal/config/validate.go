@@ -209,6 +209,7 @@ func validateAIRouter(value any, providers *omap.Map) []string {
 			"(or set TYPESAFE_API_KEY in the environment)")
 	}
 	errors = append(errors, validateLaya(ai, engine)...)
+	errors = append(errors, validateMicrosoft(ai, engine, providers)...)
 	if ai.Has("decision_prompt") && ai.Value("decision_prompt") != nil {
 		prompt, ok := ai.Value("decision_prompt").(string)
 		if !ok {
@@ -249,6 +250,59 @@ func validateLaya(ai *omap.Map, engine string) []string {
 	if model := strings.TrimSpace(laya.Str("model")); model != "" && !contains(LayaCheckpoints, model) {
 		errors = append(errors, fmt.Sprintf("ai_router.laya.model must be one of %s (or empty for automatic)",
 			strings.Join(LayaCheckpoints, ", ")))
+	}
+	return errors
+}
+
+// validateMicrosoft checks ai_router.microsoft. The address and key may each come from the
+// section itself or from the backend connection it names; only while the engine is selected
+// must one of the two supply them.
+func validateMicrosoft(ai *omap.Map, engine string, providers *omap.Map) []string {
+	const need = "ai_router.microsoft needs base_url and api_key (or a provider to take them from) " +
+		"when decision_engine is microsoft"
+	raw := ai.Value("microsoft")
+	if raw == nil {
+		if engine == "microsoft" {
+			return []string{need}
+		}
+		return nil
+	}
+	ms, ok := raw.(*omap.Map)
+	if !ok {
+		return []string{"ai_router.microsoft must be an object"}
+	}
+	var errors []string
+	base := strings.TrimSpace(ms.Str("base_url"))
+	if base != "" && !strings.HasPrefix(base, "https://") && !strings.HasPrefix(base, "http://") {
+		errors = append(errors, "ai_router.microsoft.base_url must start with http:// or https://")
+	}
+	key := strings.TrimSpace(ms.Str("api_key"))
+	if ref := strings.TrimSpace(ms.Str("provider")); ref != "" {
+		var p *omap.Map
+		if providers != nil {
+			p = providers.Map(ref)
+		}
+		switch {
+		case p == nil:
+			errors = append(errors, fmt.Sprintf("ai_router.microsoft.provider %s is not in providers", quote(ref)))
+		case p.Str("api_type") == "anthropic":
+			errors = append(errors, fmt.Sprintf("ai_router.microsoft.provider %s is an Anthropic connection, "+
+				"not a Microsoft Foundry / Azure resource", quote(ref)))
+		default:
+			if base == "" {
+				base = strings.TrimSpace(p.Str("base_url"))
+			}
+			if key == "" {
+				key = strings.TrimSpace(p.Str("api_key"))
+			}
+		}
+	}
+	// A provider whose key comes from the environment shows none here; its base_url still
+	// does, and the decision call reports a missing key in the trace if it is really absent.
+	// Not repeated when the named connection was already reported as unusable.
+	if engine == "microsoft" && len(errors) == 0 &&
+		(base == "" || (key == "" && strings.TrimSpace(ms.Str("provider")) == "")) {
+		errors = append(errors, need)
 	}
 	return errors
 }

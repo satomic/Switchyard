@@ -188,10 +188,11 @@ func RouteCombined(ctx context.Context, prompt string, cfg *config.RouterConfig,
 // RouteByAI returns (model, reason, analysis). The analysis records the decision model's
 // input, output and rationale.
 //
-// Three engines make the decision (ai_router.decision_engine): an LLM reached through the
+// Four engines make the decision (ai_router.decision_engine): an LLM reached through the
 // connection pool -- so it can use a different endpoint/key than the serving models --
-// TypeSafe's hosted Jev, or a self-hosted Laya on the same protocol. All share the analysis skeleton, the fallback to the default model, and the
-// rule that an answer outside the catalog is a failure, so the strategy above them cannot tell
+// TypeSafe's hosted Jev, a self-hosted Laya, or Microsoft-Decision-1 in Microsoft Foundry, the
+// last three on the same System One protocol. All share the analysis skeleton, the fallback to
+// the default model, and the rule that an answer outside the catalog is a failure, so the strategy above them cannot tell
 // which one ran.
 func RouteByAI(ctx context.Context, prompt string, cfg *config.RouterConfig, pool *upstream.Pool) (string, string, *omap.Map) {
 	truncated := TruncateForDecision(prompt, cfg.MaxPromptChars)
@@ -303,7 +304,7 @@ func decideByLLM(ctx context.Context, truncated string, cfg *config.RouterConfig
 	return data.Str("model"), nil
 }
 
-// SystemOneInstructions is the Choice question Jev (or Laya) answers. Jev reads its
+// SystemOneInstructions is the Choice question Jev (or Laya, or Microsoft-Decision-1) answers. Jev reads its
 // instructions literally, so this says exactly what to weigh rather than leaving "best" to
 // interpretation; the model descriptions carry the rest, one per option.
 const SystemOneInstructions = "Which backend model should handle `user_request`? " +
@@ -315,8 +316,9 @@ const SystemOneQuestionID = "model"
 
 // BuildSystemOneRequest is the /v1/systemone body for one routing decision: the user's request
 // as the state, and a single Choice whose options are the model catalog with each model's
-// description as its rubric. Jev and Laya get the same body, bar the model field -- Laya is
-// asked without one when no checkpoint is pinned, so it picks by the request's language.
+// description as its rubric. All three engines get the same body, bar the model field -- Laya is
+// asked without one when no checkpoint is pinned, so it picks by the request's language, and
+// Foundry reads it as the deployment name.
 // Exported so the console's preview shows the exact request.
 func BuildSystemOneRequest(truncated string, cfg *config.RouterConfig, endpoint config.SystemOneEndpoint) *omap.Map {
 	criteria := omap.New()
@@ -344,7 +346,7 @@ func BuildSystemOneRequest(truncated string, cfg *config.RouterConfig, endpoint 
 	return body
 }
 
-// decideBySystemOne asks Jev or Laya one Choice over the catalog. There is no free-text
+// decideBySystemOne asks Jev, Laya or Microsoft-Decision-1 one Choice over the catalog. There is no free-text
 // rationale to record, so the probabilities and confidence stand in for it -- they are the
 // more useful record anyway: they show how close the runner-up was.
 func decideBySystemOne(ctx context.Context, truncated string, cfg *config.RouterConfig,
@@ -355,11 +357,17 @@ func decideBySystemOne(ctx context.Context, truncated string, cfg *config.Router
 	}
 	analysis.Set("decision_model", model)
 	analysis.Set("decision_provider", endpoint.Engine)
-	if endpoint.KeyNeeded && endpoint.APIKey == "" {
-		return "", fmt.Errorf("no TypeSafe API key: set ai_router.typesafe.api_key or TYPESAFE_API_KEY")
-	}
 	if endpoint.BaseURL == "" {
+		if endpoint.Engine == "microsoft" {
+			return "", fmt.Errorf("no Microsoft Foundry address: set ai_router.microsoft.base_url or provider")
+		}
 		return "", fmt.Errorf("no %s address: set ai_router.%s.base_url", endpoint.Label, endpoint.Engine)
+	}
+	if endpoint.KeyNeeded && endpoint.APIKey == "" {
+		if endpoint.Engine == "microsoft" {
+			return "", fmt.Errorf("no Microsoft Foundry API key: set ai_router.microsoft.api_key or provider")
+		}
+		return "", fmt.Errorf("no TypeSafe API key: set ai_router.typesafe.api_key or TYPESAFE_API_KEY")
 	}
 	if n := cfg.Models.Len(); n < 2 || n > endpoint.MaxOptions {
 		// One option is not a decision, and past the service's cap the request is refused.
@@ -373,7 +381,7 @@ func decideBySystemOne(ctx context.Context, truncated string, cfg *config.Router
 		"criteria", question.Value("criteria"),
 	))
 
-	resp, err := upstream.SystemOne(ctx, endpoint.BaseURL, endpoint.APIKey, body)
+	resp, err := upstream.SystemOne(ctx, endpoint.URL(), endpoint.KeyHeader, endpoint.APIKey, body)
 	if err != nil {
 		return "", err
 	}
@@ -400,10 +408,7 @@ func decideBySystemOne(ctx context.Context, truncated string, cfg *config.Router
 	choice := answer.Str("choice")
 	analysis.Set("probabilities", answer.Value("probabilities"))
 	analysis.Set("confidence", answer.Value("confidence"))
-	name := "Jev"
-	if endpoint.Engine == "laya" {
-		name = "Laya"
-	}
+	name := map[string]string{"typesafe": "Jev", "laya": "Laya", "microsoft": "Decision-1"}[endpoint.Engine]
 	analysis.Set("rationale", fmt.Sprintf("%s picked %s with p=%s (confidence %s)",
 		name, choice, numberText(answer.Map("probabilities").Value(choice)), numberText(answer.Value("confidence"))))
 	return choice, nil

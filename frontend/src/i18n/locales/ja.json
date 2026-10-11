@@ -1258,9 +1258,9 @@
       "maxPromptChars": "プロンプトの切り詰め長",
       "maxPromptCharsHint": "これを超えると先頭と末尾を半分ずつ残します",
       "typesafe": {
-        "toggle": "System One 判定モデルを使う（TypeSafe Jev またはセルフホストの Laya）",
+        "toggle": "System One 判定モデルを使う（TypeSafe Jev、セルフホストの Laya、または Microsoft-Decision-1）",
         "badge": "高速",
-        "desc": "System One モデルは固定の選択肢から 1 つを選ぶために作られています。モデルカタログを 1 つの Choice 質問として送り、選んだモデルと各選択肢の確率が返ります。クラウドの <jev>TypeSafe Jev</jev> API か、同じプロトコルで自分で動かす <laya>Laya</laya> を選べます。下の判定プロンプトは使われません。チェックを外すと LLM の判定モデルに戻り、設定は失われません。",
+        "desc": "System One モデルは固定の選択肢から 1 つを選ぶために作られています。モデルカタログを 1 つの Choice 質問として送り、選んだモデルと各選択肢の確率が返ります。クラウドの <jev>TypeSafe Jev</jev> API、自分で動かす <laya>Laya</laya>、または自社の Microsoft Foundry にデプロイした <ms>Microsoft-Decision-1</ms> を選べます（いずれも同じプロトコル）。下の判定プロンプトは使われません。チェックを外すと LLM の判定モデルに戻り、設定は失われません。",
         "apiKey": "TypeSafe API キー",
         "apiKeyHint": "console.typesafe.ai で発行。空欄なら環境変数 TYPESAFE_API_KEY を使用",
         "model": "Jev モデル",
@@ -1272,7 +1272,9 @@
         "typesafe": "TypeSafe Jev（クラウド API）",
         "typesafeDesc": "TypeSafe のクラウド API。TypeSafe API キーが必要で、モデルのルーティングでは最も正確です。",
         "laya": "セルフホストの Laya",
-        "layaDesc": "自分のマシンで動かすオープンソースの Jev 代替（laya-serve）。呼び出しごとの費用がなく、データは社内ネットワークから出ません。基本チェックポイントのルーティング精度は低めです。"
+        "layaDesc": "自分のマシンで動かすオープンソースの Jev 代替（laya-serve）。呼び出しごとの費用がなく、データは社内ネットワークから出ません。基本チェックポイントのルーティング精度は低めです。",
+        "microsoft": "Microsoft-Decision-1（Microsoft Foundry）",
+        "microsoftDesc": "Microsoft の判定モデル。自社の Foundry リソースにデプロイし、Azure サブスクリプションで課金されます。リクエストはテナントのリージョン内に留まり、既存の Foundry 接続のアドレスとキーを再利用できます。"
       },
       "laya": {
         "baseUrl": "Laya のアドレス",
@@ -1282,6 +1284,18 @@
         "model": "チェックポイント",
         "modelHint": "自動: リクエストの言語で english か multilingual を選択",
         "modelAuto": "自動（言語で選択）"
+      },
+      "microsoft": {
+        "provider": "バックエンド接続を再利用",
+        "providerHint": "同じ Foundry リソース上の接続からアドレスとキーを取得します。下の項目が優先されます",
+        "providerNone": "再利用しない（下に入力）",
+        "baseUrl": "Foundry エンドポイント",
+        "baseUrlHint": "リソースのエンドポイント。例: https://<resource>.services.ai.azure.com/models（/models や /openai/v1 が付いていても可）",
+        "apiKey": "API キー",
+        "apiKeyHint": "Foundry リソースのキー。api-key ヘッダーで送信されます",
+        "model": "デプロイ名",
+        "modelHint": "Foundry でデプロイに付けた名前。既定は Microsoft-Decision-1",
+        "fromProvider": "{{value}} から"
       }
     },
     "rules": {
@@ -1345,8 +1359,14 @@
         "proof": "証明せよ：閉区間上の任意の連続関数は一様連続である"
       },
       "jevUnused": "System One モデルでは未使用",
-      "jevLead": "TypeSafe Jev と Laya はシステムプロンプトを受け取りません。カタログ内のモデルを選択肢とする 1 つの Choice 質問に答え、各選択肢の説明にはモデルの <code>description</code> が使われます。つまり判定を左右するのはモデルの説明です。下のテンプレートは LLM の判定モデルに戻したときのために保持されます。プレビューは実際に送信されるリクエストです（API キーは含みません）。",
-      "jevNoKey": "API キー未設定"
+      "jevLead": "TypeSafe Jev、Laya、Microsoft-Decision-1 はシステムプロンプトを受け取りません。カタログ内のモデルを選択肢とする 1 つの Choice 質問に答え、各選択肢の説明にはモデルの <code>description</code> が使われます。つまり判定を左右するのはモデルの説明です。下のテンプレートは LLM の判定モデルに戻したときのために保持されます。プレビューは実際に送信されるリクエストです（API キーは含みません）。",
+      "jevNoKey": "API キー未設定",
+      "trial": "実際に判定する",
+      "trialHint": "上の未保存の設定で、サンプルのリクエストを本番トラフィックと同じ方法で判定エンジンに送ります",
+      "trialRunning": "判定中…",
+      "trialPicked": "選択",
+      "trialLatency": "{{ms}} ms",
+      "trialFailed": "失敗したため、このリクエストは既定のモデル {{model}} に送られます:"
     },
     "list": {
       "search": "検索",

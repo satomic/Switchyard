@@ -38,9 +38,11 @@ var Strategies = []string{"rule", "ai", "rule-then-ai"}
 // configured provider, with the decision prompt; "typesafe" asks TypeSafe's Jev -- a System One
 // model built for picking one option out of a closed set -- a single Choice question whose
 // options are the model catalog; "laya" asks the same question of a self-hosted Laya
-// (github.com/NandhaKishorM/laya), whose laya-serve speaks Jev's /v1/systemone protocol.
+// (github.com/NandhaKishorM/laya), whose laya-serve speaks Jev's /v1/systemone protocol;
+// "microsoft" asks it of a Microsoft-Decision-1 deployment in Microsoft Foundry, which serves
+// the same protocol under /providers/microsoft/v1/systemone.
 // Missing means "llm", so an existing config.yaml is unchanged.
-var DecisionEngines = []string{"llm", "typesafe", "laya"}
+var DecisionEngines = []string{"llm", "typesafe", "laya", "microsoft"}
 
 const (
 	TypeSafeDefaultBaseURL = "https://api.typesafe.ai"
@@ -52,6 +54,17 @@ const (
 // LayaMaxOptions is the most options laya-serve accepts in one Choice question. Accuracy falls
 // off well before that (options share a fixed token budget), but past it the request is refused.
 const LayaMaxOptions = 100
+
+const (
+	// MicrosoftDefaultModel is the deployment name Foundry suggests for Microsoft-Decision-1.
+	// Foundry routes on the deployment name, so an operator who renamed the deployment must
+	// say so in ai_router.microsoft.model.
+	MicrosoftDefaultModel = "Microsoft-Decision-1"
+	// MicrosoftSystemOnePath is where a Foundry resource serves the System One protocol.
+	MicrosoftSystemOnePath = "/providers/microsoft/v1/systemone"
+	// MicrosoftMaxOptions is the most options Foundry accepts in one Choice question.
+	MicrosoftMaxOptions = 255
+)
 
 // TypeSafe is the ai_router.typesafe section: where the Jev decision engine is reached.
 type TypeSafe struct {
@@ -70,15 +83,58 @@ type Laya struct {
 	Model   string
 }
 
-// SystemOneEndpoint is one resolved /v1/systemone service, whichever engine it belongs to.
+// Microsoft is the ai_router.microsoft section: a Microsoft-Decision-1 deployment in a
+// Microsoft Foundry resource. Provider names a backend connection on the same resource whose
+// address and key are used when BaseURL / APIKey are empty, so a Foundry already configured for
+// the serving models needs nothing but the deployment name. BaseURL is the resource endpoint;
+// the /models or /openai/v1 suffix the portal shows is accepted and dropped.
+type Microsoft struct {
+	BaseURL  string
+	APIKey   string
+	Model    string
+	Provider string
+}
+
+// SystemOneEndpoint is one resolved System One service, whichever engine it belongs to.
 type SystemOneEndpoint struct {
-	Engine     string // "typesafe" or "laya"
+	Engine     string // "typesafe", "laya" or "microsoft"
 	Label      string // for the trace and error messages
 	BaseURL    string
+	Path       string // appended to BaseURL; empty = /v1/systemone
+	KeyHeader  string // the header the key is sent in; empty = Authorization: Bearer
 	APIKey     string
 	Model      string // sent as the request's model; empty = omitted
 	KeyNeeded  bool
 	MaxOptions int
+}
+
+// URL is the address the decision request is posted to.
+func (e SystemOneEndpoint) URL() string {
+	path := e.Path
+	if path == "" {
+		path = "/v1/systemone"
+	}
+	return strings.TrimRight(e.BaseURL, "/") + path
+}
+
+// foundrySuffixes are the paths the Foundry portal and the provider connections append to a
+// resource endpoint. The System One path hangs off the bare resource, so they are dropped.
+var foundrySuffixes = []string{MicrosoftSystemOnePath, "/openai/v1", "/openai", "/models"}
+
+// FoundryResourceURL reduces any of the endpoint forms Foundry shows for a resource
+// (https://<r>.services.ai.azure.com/models, .../openai/v1, https://<r>.openai.azure.com/, a
+// project endpoint .../api/projects/<p>) to the resource root.
+func FoundryResourceURL(raw string) string {
+	u := strings.TrimRight(strings.TrimSpace(raw), "/")
+	if i := strings.Index(u, "/api/projects/"); i >= 0 {
+		u = u[:i]
+	}
+	for _, suffix := range foundrySuffixes {
+		if strings.HasSuffix(u, suffix) {
+			u = strings.TrimRight(strings.TrimSuffix(u, suffix), "/")
+		}
+	}
+	return u
 }
 
 // CatalogPlaceholder stands for the model catalog inside the AI decision prompt.
@@ -193,6 +249,7 @@ type RouterConfig struct {
 	DecisionEngine       string
 	TypeSafe             TypeSafe
 	Laya                 Laya
+	Microsoft            Microsoft
 
 	Providers           *omap.Map // name -> *Provider
 	DefaultProviderName string
@@ -277,6 +334,16 @@ func New(raw *omap.Map) *RouterConfig {
 		BaseURL: strings.TrimRight(strings.TrimSpace(laya.Str("base_url")), "/"),
 		APIKey:  strings.TrimSpace(laya.Str("api_key")),
 		Model:   strings.TrimSpace(laya.Str("model")),
+	}
+	ms := orEmpty(ai.Map("microsoft"))
+	c.Microsoft = Microsoft{
+		BaseURL:  FoundryResourceURL(ms.Str("base_url")),
+		APIKey:   strings.TrimSpace(ms.Str("api_key")),
+		Model:    strings.TrimSpace(ms.Str("model")),
+		Provider: strings.TrimSpace(ms.Str("provider")),
+	}
+	if c.Microsoft.Model == "" {
+		c.Microsoft.Model = MicrosoftDefaultModel
 	}
 
 	c.Providers = omap.New()
@@ -569,8 +636,9 @@ func (c *RouterConfig) RenderDecisionPrompt(catalog string) string {
 }
 
 // SystemOne returns the /v1/systemone service the AI decision goes to, and false when the
-// engine is the LLM. Jev and Laya share the protocol and so the whole decision path; only where
-// the request goes, what it is signed with, and how many options it may carry differ.
+// engine is the LLM. Jev, Laya and Microsoft-Decision-1 share the protocol and so the whole
+// decision path; only where the request goes, what it is signed with, and how many options it
+// may carry differ.
 func (c *RouterConfig) SystemOne() (SystemOneEndpoint, bool) {
 	switch c.DecisionEngine {
 	case "typesafe":
@@ -579,6 +647,20 @@ func (c *RouterConfig) SystemOne() (SystemOneEndpoint, bool) {
 	case "laya":
 		return SystemOneEndpoint{Engine: "laya", Label: "Laya", BaseURL: c.Laya.BaseURL,
 			APIKey: c.Laya.APIKey, Model: c.Laya.Model, MaxOptions: LayaMaxOptions}, true
+	case "microsoft":
+		base, key := c.Microsoft.BaseURL, c.Microsoft.APIKey
+		// Explicit fields win; the named connection fills only what they leave empty.
+		if p, ok := c.Providers.Value(c.Microsoft.Provider).(*Provider); ok && c.Microsoft.Provider != "" {
+			if base == "" {
+				base = FoundryResourceURL(p.BaseURL)
+			}
+			if key == "" {
+				key = p.APIKey
+			}
+		}
+		return SystemOneEndpoint{Engine: "microsoft", Label: "Microsoft-Decision-1", BaseURL: base,
+			Path: MicrosoftSystemOnePath, KeyHeader: "api-key", APIKey: key, Model: c.Microsoft.Model,
+			KeyNeeded: true, MaxOptions: MicrosoftMaxOptions}, true
 	}
 	return SystemOneEndpoint{}, false
 }

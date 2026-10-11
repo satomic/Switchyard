@@ -31,7 +31,13 @@ export interface RuleStep {
   skipped?: string
 }
 
-export type DecisionEngine = 'llm' | 'typesafe' | 'laya'
+export type DecisionEngine = 'llm' | 'typesafe' | 'laya' | 'microsoft'
+
+/** The engines that answer one System One Choice question rather than a chat prompt. */
+export const SYSTEM_ONE_ENGINES = ['typesafe', 'laya', 'microsoft'] as const
+export type SystemOneEngine = (typeof SYSTEM_ONE_ENGINES)[number]
+export const isSystemOne = (engine?: DecisionEngine): engine is SystemOneEngine =>
+  (SYSTEM_ONE_ENGINES as readonly string[]).includes(engine ?? '')
 
 export interface TypeSafeSettings {
   api_key?: string
@@ -49,6 +55,19 @@ export interface LayaSettings {
   api_key?: string
   /** english / multilingual / typed-decisions; empty lets Laya pick by language. */
   model?: string
+}
+
+/** A Microsoft-Decision-1 deployment in Microsoft Foundry, served on the same protocol under
+ *  /providers/microsoft/v1/systemone. */
+export interface MicrosoftSettings {
+  /** The Foundry resource endpoint; the /models or /openai/v1 suffix the portal shows is fine. */
+  base_url?: string
+  /** Sent as the api-key header. */
+  api_key?: string
+  /** The deployment name; defaults to Microsoft-Decision-1. */
+  model?: string
+  /** A backend connection on the same resource, whose address / key fill empty fields above. */
+  provider?: string
 }
 
 export interface RoutingAnalysis {
@@ -289,6 +308,8 @@ export interface RouterConfig {
     typesafe?: TypeSafeSettings
     /** Where the self-hosted Laya engine is reached. Kept when another engine is selected. */
     laya?: LayaSettings
+    /** Where Microsoft-Decision-1 is reached. Kept when another engine is selected. */
+    microsoft?: MicrosoftSettings
     decision_model: string
     decision_provider?: string
     timeout_seconds: number
@@ -562,11 +583,25 @@ export interface PromptPreview {
   default_model: string | null
   chars: number
   decision_engine: DecisionEngine
-  /** The exact /v1/systemone body a Jev or Laya decision would send (null for the LLM engine). */
+  /** The exact System One body a Jev, Laya or Microsoft-Decision-1 decision would send (null
+   *  for the LLM engine). */
   systemone_request: Record<string, unknown> | null
-  /** True when the engine needs a key and none is available (TypeSafe, with no key in the
-   *  config or in TYPESAFE_API_KEY). Laya's key is optional, so it is never missing. */
+  /** Where that body is posted (null for the LLM engine, or when no address is set yet). */
+  systemone_url: string | null
+  /** True when the engine needs a key and none is available (TypeSafe with no key in the config
+   *  or TYPESAFE_API_KEY; Microsoft with none of its own or from its connection). Laya's key is
+   *  optional, so it is never missing. */
   systemone_key_missing: boolean
+}
+
+/** One real decision made by /v1/config/decision/test. */
+export interface DecisionTestResult {
+  model: string
+  reason: string
+  /** False when the decision failed and the default model was used; `analysis.error` says why. */
+  ok: boolean
+  latency_ms: number
+  analysis: RoutingAnalysis
 }
 
 /** Render the preview from the **unsaved draft**: models / ai_router are posted as-is, so there is
@@ -577,6 +612,16 @@ export async function previewDecisionPrompt(payload: {
   sample_prompt?: string
 }): Promise<PromptPreview> {
   return json<PromptPreview>('/v1/config/decision-prompt/preview', jsonBody('POST', payload))
+}
+
+/** Make one real AI routing decision for `sample_prompt` with the **unsaved draft**, through the
+ *  same code path live traffic uses -- so a wrong key or deployment name shows up before saving. */
+export async function testDecision(payload: {
+  models: RouterConfig['models']
+  ai_router: RouterConfig['ai_router']
+  sample_prompt: string
+}): Promise<DecisionTestResult> {
+  return json<DecisionTestResult>('/v1/config/decision/test', jsonBody('POST', payload))
 }
 
 export async function getDefaultDecisionPrompt(): Promise<{ prompt: string; placeholder: string }> {

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import type { LayaSettings, TypeSafeSettings } from '../../api'
+import { isSystemOne, type LayaSettings, type MicrosoftSettings, type SystemOneEngine, type TypeSafeSettings } from '../../api'
 import { aiRouterActive } from './strategy'
 import DecisionPromptPanel from './DecisionPromptPanel'
 import RoutingFlow from './RoutingFlow'
@@ -13,24 +13,29 @@ export default function StrategySection({ cfg, set, notify, goto }: SectionProps
   const providerNames = Object.keys(cfg.providers ?? {})
   const [revealKey, setRevealKey] = useState(false)
   const engine = cfg.ai_router.decision_engine
-  /** Jev and Laya are both System One engines on the same protocol, so one switch covers them
-   *  and a second choice picks which. */
-  const systemOne = engine === 'typesafe' || engine === 'laya'
-  /** Which of the two the switch turns back on: the one last selected in this session. */
-  const [lastSystemOne, setLastSystemOne] = useState<'typesafe' | 'laya'>(
-    engine === 'laya' ? 'laya' : 'typesafe',
+  /** Jev, Laya and Microsoft-Decision-1 are all System One engines on the same protocol, so one
+   *  switch covers them and a second choice picks which. */
+  const systemOne = isSystemOne(engine)
+  /** Which of them the switch turns back on: the one last selected in this session. */
+  const [lastSystemOne, setLastSystemOne] = useState<SystemOneEngine>(
+    isSystemOne(engine) ? engine : 'typesafe',
   )
   const typesafe = cfg.ai_router.typesafe ?? {}
   const laya = cfg.ai_router.laya ?? {}
+  const microsoft = cfg.ai_router.microsoft ?? {}
+  /** Connections Microsoft-Decision-1 can borrow an address and key from: any but Anthropic's.
+   *  A Foundry / Azure OpenAI connection on the same resource is the one that works. */
+  const foundryProviders = providerNames.filter((name) => cfg.providers?.[name]?.api_type !== 'anthropic')
+  const borrowed = microsoft.provider ? cfg.providers?.[microsoft.provider] : undefined
 
-  const setEngine = (next: 'typesafe' | 'laya' | undefined) => {
+  const setEngine = (next: SystemOneEngine | undefined) => {
     if (next) setLastSystemOne(next)
     set({ ai_router: { ...cfg.ai_router, decision_engine: next } })
   }
 
   /** Empty strings are stored as undefined, so config.yaml keeps no empty field and the
    *  backend's defaults (jev-latest, api.typesafe.ai, TYPESAFE_API_KEY; Laya's automatic
-   *  checkpoint) apply. */
+   *  checkpoint; the Microsoft-Decision-1 deployment name and the borrowed connection) apply. */
   function patched<T extends object>(current: T, patch: Partial<T>): T | undefined {
     const next = { ...current } as Record<string, unknown>
     for (const [k, v] of Object.entries(patch)) {
@@ -43,6 +48,8 @@ export default function StrategySection({ cfg, set, notify, goto }: SectionProps
     set({ ai_router: { ...cfg.ai_router, typesafe: patched(typesafe, patch) } })
   const setLaya = (patch: Partial<LayaSettings>) =>
     set({ ai_router: { ...cfg.ai_router, laya: patched(laya, patch) } })
+  const setMicrosoft = (patch: Partial<MicrosoftSettings>) =>
+    set({ ai_router: { ...cfg.ai_router, microsoft: patched(microsoft, patch) } })
 
   /** The rules link inside a choice card's description. The card is a `<label>`, so a click on
    *  the button would also select its radio -- hence the stopPropagation. */
@@ -167,7 +174,7 @@ export default function StrategySection({ cfg, set, notify, goto }: SectionProps
         </div>
         <div className="panel-body">
           {/* The engine switch. Unticking it returns to the LLM fields below, which were never
-              cleared -- and the TypeSafe and Laya settings are kept too, so flipping back and
+              cleared -- and the TypeSafe, Laya and Microsoft settings are kept too, so flipping back and
               forth to compare them costs nothing. */}
           <label className={`choice ${systemOne ? 'selected' : ''}`} style={{ marginBottom: 12 }}>
             <input
@@ -188,6 +195,7 @@ export default function StrategySection({ cfg, set, notify, goto }: SectionProps
                     // leaves the text outside the anchor.
                     jev: <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev" target="_blank" rel="noreferrer" />,
                     laya: <a href="https://github.com/NandhaKishorM/laya" target="_blank" rel="noreferrer" />,
+                    ms: <a href="https://ai.azure.com/catalog/models/Microsoft-Decision-1" target="_blank" rel="noreferrer" />,
                   }}
                 />
               </span>
@@ -219,6 +227,18 @@ export default function StrategySection({ cfg, set, notify, goto }: SectionProps
                   <span>
                     <span className="choice-title">{t('config.aiRouter.systemOne.laya')}</span>
                     <span className="choice-desc">{t('config.aiRouter.systemOne.layaDesc')}</span>
+                  </span>
+                </label>
+                <label className={`choice ${engine === 'microsoft' ? 'selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="system-one-engine"
+                    checked={engine === 'microsoft'}
+                    onChange={() => setEngine('microsoft')}
+                  />
+                  <span>
+                    <span className="choice-title">{t('config.aiRouter.systemOne.microsoft')}</span>
+                    <span className="choice-desc">{t('config.aiRouter.systemOne.microsoftDesc')}</span>
                   </span>
                 </label>
               </div>
@@ -273,6 +293,85 @@ export default function StrategySection({ cfg, set, notify, goto }: SectionProps
                         value={typesafe.base_url ?? ''}
                         placeholder="https://api.typesafe.ai"
                         onChange={(e) => setTypeSafe({ base_url: e.target.value.trim() })}
+                      />
+                    </label>
+                  </div>
+                </>
+              ) : engine === 'microsoft' ? (
+                <>
+                  <label className="field">
+                    <span className="field-name">
+                      {t('config.aiRouter.microsoft.provider')}
+                      <span className="field-hint">{t('config.aiRouter.microsoft.providerHint')}</span>
+                    </span>
+                    <select
+                      value={microsoft.provider ?? ''}
+                      onChange={(e) => setMicrosoft({ provider: e.target.value })}
+                    >
+                      <option value="">{t('config.aiRouter.microsoft.providerNone')}</option>
+                      {foundryProviders.map((name) => (
+                        <option key={name} value={name}>
+                          {name} · {cfg.providers?.[name]?.base_url}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span className="field-name">
+                      {t('config.aiRouter.microsoft.baseUrl')}
+                      <span className="field-hint">{t('config.aiRouter.microsoft.baseUrlHint')}</span>
+                    </span>
+                    <input
+                      type="text"
+                      className="mono"
+                      value={microsoft.base_url ?? ''}
+                      placeholder={
+                        borrowed?.base_url
+                          ? t('config.aiRouter.microsoft.fromProvider', { value: borrowed.base_url })
+                          : 'https://<resource>.services.ai.azure.com/models'
+                      }
+                      onChange={(e) => setMicrosoft({ base_url: e.target.value.trim() })}
+                    />
+                  </label>
+                  <div className="row">
+                    <label className="field">
+                      <span className="field-name">
+                        {t('config.aiRouter.microsoft.apiKey')}
+                        <span className="field-hint">{t('config.aiRouter.microsoft.apiKeyHint')}</span>
+                      </span>
+                      <span style={{ display: 'flex', gap: 8 }}>
+                        <input
+                          type={revealKey ? 'text' : 'password'}
+                          className="mono"
+                          value={microsoft.api_key ?? ''}
+                          placeholder={
+                            microsoft.provider
+                              ? t('config.aiRouter.microsoft.fromProvider', { value: microsoft.provider })
+                              : 'api-key'
+                          }
+                          autoComplete="off"
+                          onChange={(e) => setMicrosoft({ api_key: e.target.value.trim() })}
+                        />
+                        <button
+                          className="btn ghost sm"
+                          style={{ flex: 'none' }}
+                          onClick={() => setRevealKey((v) => !v)}
+                        >
+                          {revealKey ? t('common.hide') : t('common.show')}
+                        </button>
+                      </span>
+                    </label>
+                    <label className="field">
+                      <span className="field-name">
+                        {t('config.aiRouter.microsoft.model')}
+                        <span className="field-hint">{t('config.aiRouter.microsoft.modelHint')}</span>
+                      </span>
+                      <input
+                        type="text"
+                        className="mono"
+                        value={microsoft.model ?? ''}
+                        placeholder="Microsoft-Decision-1"
+                        onChange={(e) => setMicrosoft({ model: e.target.value.trim() })}
                       />
                     </label>
                   </div>

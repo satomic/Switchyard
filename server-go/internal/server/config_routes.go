@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/satomic/model-router/server-go/internal/aicredits"
 	"github.com/satomic/model-router/server-go/internal/auth"
@@ -70,18 +71,10 @@ func (a *App) previewDecisionPrompt(w http.ResponseWriter, r *http.Request) erro
 	if err != nil {
 		return err
 	}
-	raw, err := config.LoadRaw()
+	draft, err := draftConfig(payload)
 	if err != nil {
-		return errorf(http.StatusInternalServerError, "could not read the configuration: %v", err)
+		return err
 	}
-	raw = raw.Clone()
-	if models, ok := payload.Value("models").(*omap.Map); ok {
-		raw.Set("models", models)
-	}
-	if aiRouter, ok := payload.Value("ai_router").(*omap.Map); ok {
-		raw.Set("ai_router", aiRouter)
-	}
-	draft := config.New(raw)
 
 	catalog := draft.ModelCatalogText()
 	system := draft.RenderDecisionPrompt(catalog)
@@ -109,9 +102,9 @@ func (a *App) previewDecisionPrompt(w http.ResponseWriter, r *http.Request) erro
 
 	decisionModel := draft.DecisionModel
 	decisionProvider := draft.ResolveDecisionModel().Provider.Name
-	// With Jev or Laya selected the decision prompt is not sent at all; what is sent is this
-	// request, built by the same function RouteByAI uses. The key is never part of it.
-	var systemOneRequest any
+	// With a System One engine selected the decision prompt is not sent at all; what is sent is
+	// this request, built by the same function RouteByAI uses. The key is never part of it.
+	var systemOneRequest, systemOneURL any
 	keyMissing := false
 	if endpoint, ok := draft.SystemOne(); ok {
 		decisionModel = endpoint.Model
@@ -120,6 +113,9 @@ func (a *App) previewDecisionPrompt(w http.ResponseWriter, r *http.Request) erro
 		}
 		decisionProvider = endpoint.Engine
 		systemOneRequest = routing.BuildSystemOneRequest(truncated, draft, endpoint)
+		if endpoint.BaseURL != "" {
+			systemOneURL = endpoint.URL()
+		}
 		keyMissing = endpoint.KeyNeeded && endpoint.APIKey == ""
 	}
 
@@ -134,6 +130,7 @@ func (a *App) previewDecisionPrompt(w http.ResponseWriter, r *http.Request) erro
 		"decision_provider", decisionProvider,
 		"decision_engine", draft.DecisionEngine,
 		"systemone_request", systemOneRequest,
+		"systemone_url", systemOneURL,
 		// Whether a required key is missing, without echoing it: the environment may supply
 		// one the draft does not show. Laya's key is optional, so it is never "missing".
 		"systemone_key_missing", keyMissing,
@@ -142,6 +139,56 @@ func (a *App) previewDecisionPrompt(w http.ResponseWriter, r *http.Request) erro
 		"models_without_description", missingDesc,
 		"default_model", defaultModel,
 		"chars", json.Number(strconv.Itoa(len([]rune(system)))),
+	), nil)
+	return nil
+}
+
+// draftConfig is the saved configuration with the request's unsaved `models` / `ai_router`
+// drafts laid over it, so the console can preview or try a change before pressing save.
+func draftConfig(payload *omap.Map) (*config.RouterConfig, error) {
+	raw, err := config.LoadRaw()
+	if err != nil {
+		return nil, errorf(http.StatusInternalServerError, "could not read the configuration: %v", err)
+	}
+	raw = raw.Clone()
+	if models, ok := payload.Value("models").(*omap.Map); ok {
+		raw.Set("models", models)
+	}
+	if aiRouter, ok := payload.Value("ai_router").(*omap.Map); ok {
+		raw.Set("ai_router", aiRouter)
+	}
+	return config.New(raw), nil
+}
+
+// testDecision makes one real AI routing decision for sample_prompt with the (possibly unsaved)
+// draft, through the same RouteByAI that serves traffic, and reports what it picked and how long
+// it took. It is how an admin checks a new decision engine -- a Foundry deployment name, a Laya
+// address, a key -- before saving it: a wrong one shows up here as the error the trace would
+// carry, instead of as every request quietly falling back to the default model.
+func (a *App) testDecision(w http.ResponseWriter, r *http.Request) error {
+	if _, err := a.admin(r); err != nil {
+		return err
+	}
+	payload, err := readJSONObject(r)
+	if err != nil {
+		return err
+	}
+	sample := strings.TrimSpace(payload.Str("sample_prompt"))
+	if sample == "" {
+		return errorf(http.StatusBadRequest, "sample_prompt is required")
+	}
+	draft, err := draftConfig(payload)
+	if err != nil {
+		return err
+	}
+	started := time.Now()
+	model, reason, analysis := routing.RouteByAI(r.Context(), sample, draft, a.Pool)
+	writeJSON(w, http.StatusOK, mapOf(
+		"model", model,
+		"reason", reason,
+		"ok", reason == "ai-decision",
+		"latency_ms", json.Number(strconv.FormatInt(time.Since(started).Milliseconds(), 10)),
+		"analysis", analysis,
 	), nil)
 	return nil
 }

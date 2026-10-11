@@ -193,6 +193,43 @@ sent to the decision model**:
      answers `401: invalid or missing bearer token` in the trace), stickiness, and model-policy
      narrowing. The TypeSafe and Laya settings are both kept when you switch between them.
 
+   **Microsoft-Decision-1 in Microsoft Foundry (optional, Go backend)**:
+   [Microsoft-Decision-1](https://ai.azure.com/catalog/models/Microsoft-Decision-1) is Microsoft's
+   decision-scoring model (post-trained from Qwen3.5-9B, 32K context), deployed into your own Foundry
+   resource. A Foundry resource serves the same System One protocol at
+   `POST https://<resource>.services.ai.azure.com/providers/microsoft/v1/systemone` (the
+   `.openai.azure.com` and `.cognitiveservices.azure.com` hosts of the same resource work too), with
+   the key in an `api-key` header and the **deployment name** as the request's `model`. Choosing
+   **Microsoft-Decision-1 (Microsoft Foundry)** under the same checkbox
+   (`ai_router.decision_engine: microsoft`) sends it the exact request described above.
+
+   ```yaml
+   ai_router:
+     decision_engine: microsoft
+     microsoft:
+       provider: foundry                 # optional: take base_url / api_key from this connection
+       base_url: https://<resource>.services.ai.azure.com/models   # suffix /models or /openai/v1 is dropped
+       api_key: ...                      # the Foundry resource key
+       model: msft-decision-1            # your deployment name; default Microsoft-Decision-1
+   ```
+
+   - **Borrowing a connection**: a Foundry / Azure OpenAI connection on the same resource already
+     has the address and key, so `provider: <name>` is enough; fields set in the section win over it.
+   - **The deployment name must match.** Foundry routes on it: a wrong one falls back to the default
+     model with `404: The API deployment ... does not exist` in the trace.
+   - Up to 255 options per question, like Jev. Errors (`401` for a wrong key, `404` for a wrong
+     deployment, `429` past the deployment's rate limit) fall back to the default model, and the
+     trace records the reason.
+   - **Accuracy and speed.** On the same 5-model catalog, 40 requests (20 easy, 20 closer to
+     everyday Copilot use; half English, half Chinese), three runs: Decision-1 picked the expected
+     model 37.7/40 on average, Jev 39.3, an LLM (gpt-4.1-mini) 36 and Laya 20. Its misses were
+     near coin flips (chosen-model probability 0.56 or lower), mostly short Chinese summaries sent to
+     the cheapest model. Median decision time 0.54 s from Asia to East US 2 (Jev 0.35 s). About 205
+     billed input tokens per decision at $0.042 per million (output free): about $8.6 per million
+     decisions, against about $21.7 for Jev (same unit price, 518 billed tokens) and $142 for the
+     gpt-4.1-mini LLM. Full data in
+     `articles/microsoft-decision-1/`.
+
 **4. Both at once (`strategy: rule-then-ai`)**: the rules and the decision model are **both** active
 (`route_combined`). The rules are evaluated first, exactly as in step 2; a match returns that rule's
 model immediately and **no decision call is made**. Only a request no rule matched is handed to the

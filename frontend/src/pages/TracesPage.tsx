@@ -119,6 +119,9 @@ function AnalysisView({ analysis }: { analysis: RoutingAnalysis }) {
         {analysis.decision_engine === 'laya' && (
           <span className="badge ok" style={{ marginLeft: 6 }}>Laya</span>
         )}
+        {analysis.decision_engine === 'microsoft' && (
+          <span className="badge ok" style={{ marginLeft: 6 }}>Microsoft Foundry</span>
+        )}
         {analysis.decision_checkpoint?.model && (
           <span className="dim">
             {' '}
