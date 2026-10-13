@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { isSystemOne, type LayaSettings, type MicrosoftSettings, type SystemOneEngine, type TypeSafeSettings } from '../../api'
+import { isSystemOne, type LayaSettings, type MicrosoftSettings, type OpenAIDecisionSettings, type SystemOneEngine, type TypeSafeSettings } from '../../api'
 import { aiRouterActive } from './strategy'
 import DecisionPromptPanel from './DecisionPromptPanel'
 import RoutingFlow from './RoutingFlow'
@@ -23,6 +23,7 @@ export default function StrategySection({ cfg, set, notify, goto }: SectionProps
   const typesafe = cfg.ai_router.typesafe ?? {}
   const laya = cfg.ai_router.laya ?? {}
   const microsoft = cfg.ai_router.microsoft ?? {}
+  const openai = cfg.ai_router.openai ?? {}
   /** Connections Microsoft-Decision-1 can borrow an address and key from: any but Anthropic's.
    *  A Foundry / Azure OpenAI connection on the same resource is the one that works. */
   const foundryProviders = providerNames.filter((name) => cfg.providers?.[name]?.api_type !== 'anthropic')
@@ -48,6 +49,8 @@ export default function StrategySection({ cfg, set, notify, goto }: SectionProps
     set({ ai_router: { ...cfg.ai_router, typesafe: patched(typesafe, patch) } })
   const setLaya = (patch: Partial<LayaSettings>) =>
     set({ ai_router: { ...cfg.ai_router, laya: patched(laya, patch) } })
+  const setOpenAI = (patch: Partial<OpenAIDecisionSettings>) =>
+    set({ ai_router: { ...cfg.ai_router, openai: patched(openai, patch) } })
   const setMicrosoft = (patch: Partial<MicrosoftSettings>) =>
     set({ ai_router: { ...cfg.ai_router, microsoft: patched(microsoft, patch) } })
 
@@ -196,6 +199,7 @@ export default function StrategySection({ cfg, set, notify, goto }: SectionProps
                     jev: <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev" target="_blank" rel="noreferrer" />,
                     laya: <a href="https://github.com/NandhaKishorM/laya" target="_blank" rel="noreferrer" />,
                     ms: <a href="https://ai.azure.com/catalog/models/Microsoft-Decision-1" target="_blank" rel="noreferrer" />,
+                    oa: <a href="https://developers.openai.com/api/docs/guides/decisions" target="_blank" rel="noreferrer" />,
                   }}
                 />
               </span>
@@ -239,6 +243,18 @@ export default function StrategySection({ cfg, set, notify, goto }: SectionProps
                   <span>
                     <span className="choice-title">{t('config.aiRouter.systemOne.microsoft')}</span>
                     <span className="choice-desc">{t('config.aiRouter.systemOne.microsoftDesc')}</span>
+                  </span>
+                </label>
+                <label className={`choice ${engine === 'openai' ? 'selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="system-one-engine"
+                    checked={engine === 'openai'}
+                    onChange={() => setEngine('openai')}
+                  />
+                  <span>
+                    <span className="choice-title">{t('config.aiRouter.systemOne.openai')}</span>
+                    <span className="choice-desc">{t('config.aiRouter.systemOne.openaiDesc')}</span>
                   </span>
                 </label>
               </div>
@@ -293,6 +309,60 @@ export default function StrategySection({ cfg, set, notify, goto }: SectionProps
                         value={typesafe.base_url ?? ''}
                         placeholder="https://api.typesafe.ai"
                         onChange={(e) => setTypeSafe({ base_url: e.target.value.trim() })}
+                      />
+                    </label>
+                  </div>
+                </>
+              ) : engine === 'openai' ? (
+                <>
+                  <label className="field">
+                    <span className="field-name">
+                      {t('config.aiRouter.openai.apiKey')}
+                      <span className="field-hint">{t('config.aiRouter.openai.apiKeyHint')}</span>
+                    </span>
+                    <span style={{ display: 'flex', gap: 8 }}>
+                      <input
+                        type={revealKey ? 'text' : 'password'}
+                        className="mono"
+                        value={openai.api_key ?? ''}
+                        placeholder="OPENAI_API_KEY"
+                        autoComplete="off"
+                        onChange={(e) => setOpenAI({ api_key: e.target.value.trim() })}
+                      />
+                      <button
+                        className="btn ghost sm"
+                        style={{ flex: 'none' }}
+                        onClick={() => setRevealKey((v) => !v)}
+                      >
+                        {revealKey ? t('common.hide') : t('common.show')}
+                      </button>
+                    </span>
+                  </label>
+                  <div className="row">
+                    <label className="field">
+                      <span className="field-name">
+                        {t('config.aiRouter.openai.model')}
+                        <span className="field-hint">{t('config.aiRouter.openai.modelHint')}</span>
+                      </span>
+                      <input
+                        type="text"
+                        className="mono"
+                        value={openai.model ?? ''}
+                        placeholder="gpt-6-luna"
+                        onChange={(e) => setOpenAI({ model: e.target.value.trim() })}
+                      />
+                    </label>
+                    <label className="field">
+                      <span className="field-name">
+                        {t('config.aiRouter.openai.baseUrl')}
+                        <span className="field-hint">{t('config.aiRouter.openai.baseUrlHint')}</span>
+                      </span>
+                      <input
+                        type="text"
+                        className="mono"
+                        value={openai.base_url ?? ''}
+                        placeholder="https://api.openai.com/v1"
+                        onChange={(e) => setOpenAI({ base_url: e.target.value.trim() })}
                       />
                     </label>
                   </div>
@@ -432,6 +502,7 @@ export default function StrategySection({ cfg, set, notify, goto }: SectionProps
               )}
             </>
           ) : (
+            <>
             <div className="row">
               <label className="field">
                 <span className="field-name">
@@ -467,6 +538,27 @@ export default function StrategySection({ cfg, set, notify, goto }: SectionProps
                 </select>
               </label>
             </div>
+            {/* Only a reasoning model takes reasoning_effort; the router sends it only then. */}
+            {cfg.models?.[cfg.ai_router.decision_model]?.reasoning && (
+              <label className="field">
+                <span className="field-name">
+                  {t('config.aiRouter.reasoningEffort')}
+                  <span className="field-hint">{t('config.aiRouter.reasoningEffortHint')}</span>
+                </span>
+                <select
+                  value={cfg.ai_router.decision_reasoning_effort ?? ''}
+                  onChange={(e) =>
+                    set({ ai_router: { ...cfg.ai_router, decision_reasoning_effort: e.target.value || undefined } })
+                  }
+                >
+                  <option value="">{t('config.aiRouter.reasoningEffortDefault')}</option>
+                  {['none', 'low', 'medium', 'high', 'xhigh'].map((v) => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            </>
           )}
           <div className="row">
             <label className="field" style={{ marginBottom: 0 }}>

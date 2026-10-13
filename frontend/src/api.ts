@@ -31,10 +31,11 @@ export interface RuleStep {
   skipped?: string
 }
 
-export type DecisionEngine = 'llm' | 'typesafe' | 'laya' | 'microsoft'
+export type DecisionEngine = 'llm' | 'typesafe' | 'laya' | 'microsoft' | 'openai'
 
 /** The engines that answer one System One Choice question rather than a chat prompt. */
-export const SYSTEM_ONE_ENGINES = ['typesafe', 'laya', 'microsoft'] as const
+/** The dedicated decision-model engines: the three System One ones and OpenAI's Decisions API. */
+export const SYSTEM_ONE_ENGINES = ['typesafe', 'laya', 'microsoft', 'openai'] as const
 export type SystemOneEngine = (typeof SYSTEM_ONE_ENGINES)[number]
 export const isSystemOne = (engine?: DecisionEngine): engine is SystemOneEngine =>
   (SYSTEM_ONE_ENGINES as readonly string[]).includes(engine ?? '')
@@ -59,6 +60,16 @@ export interface LayaSettings {
 
 /** A Microsoft-Decision-1 deployment in Microsoft Foundry, served on the same protocol under
  *  /providers/microsoft/v1/systemone. */
+/** OpenAI's Decisions API (POST /v1/decisions). */
+export interface OpenAIDecisionSettings {
+  /** Empty falls back to OPENAI_API_KEY. */
+  api_key?: string
+  /** Defaults to gpt-6-luna. */
+  model?: string
+  /** Defaults to https://api.openai.com/v1. */
+  base_url?: string
+}
+
 export interface MicrosoftSettings {
   /** The Foundry resource endpoint; the /models or /openai/v1 suffix the portal shows is fine. */
   base_url?: string
@@ -310,8 +321,12 @@ export interface RouterConfig {
     laya?: LayaSettings
     /** Where Microsoft-Decision-1 is reached. Kept when another engine is selected. */
     microsoft?: MicrosoftSettings
+    /** Where OpenAI's Decisions API is reached. Kept when another engine is selected. */
+    openai?: OpenAIDecisionSettings
     decision_model: string
     decision_provider?: string
+    /** Sent as reasoning_effort when the decision model is a reasoning model; empty = the model's default. */
+    decision_reasoning_effort?: string
     timeout_seconds: number
     max_prompt_chars: number
     /** The system prompt for the AI decision, carrying the {catalog} placeholder. Empty = use

@@ -40,9 +40,10 @@ var Strategies = []string{"rule", "ai", "rule-then-ai"}
 // options are the model catalog; "laya" asks the same question of a self-hosted Laya
 // (github.com/NandhaKishorM/laya), whose laya-serve speaks Jev's /v1/systemone protocol;
 // "microsoft" asks it of a Microsoft-Decision-1 deployment in Microsoft Foundry, which serves
-// the same protocol under /providers/microsoft/v1/systemone.
+// the same protocol under /providers/microsoft/v1/systemone; "openai" asks it of OpenAI's
+// Decisions API (POST /v1/decisions, gpt-6-luna), the same question in OpenAI's own wire format.
 // Missing means "llm", so an existing config.yaml is unchanged.
-var DecisionEngines = []string{"llm", "typesafe", "laya", "microsoft"}
+var DecisionEngines = []string{"llm", "typesafe", "laya", "microsoft", "openai"}
 
 const (
 	TypeSafeDefaultBaseURL = "https://api.typesafe.ai"
@@ -65,6 +66,25 @@ const (
 	// MicrosoftMaxOptions is the most options Foundry accepts in one Choice question.
 	MicrosoftMaxOptions = 255
 )
+
+const (
+	OpenAIDecisionsDefaultBaseURL = "https://api.openai.com/v1"
+	// OpenAIDecisionsDefaultModel is the only model the Decisions API serves at launch.
+	OpenAIDecisionsDefaultModel = "gpt-6-luna"
+	// OpenAIDecisionsMaxOptions is the most choices one question accepts (the API rejects 256).
+	OpenAIDecisionsMaxOptions = 255
+)
+
+// OpenAIDecisions is the ai_router.openai section: OpenAI's Decisions API. An empty key falls
+// back to OPENAI_API_KEY (from the environment or .env), as the OpenAI SDKs do.
+type OpenAIDecisions struct {
+	APIKey  string
+	Model   string
+	BaseURL string
+}
+
+// ReasoningEfforts are the values ai_router.decision_reasoning_effort may take (empty = the model's default).
+var ReasoningEfforts = []string{"none", "minimal", "low", "medium", "high", "xhigh"}
 
 // TypeSafe is the ai_router.typesafe section: where the Jev decision engine is reached.
 type TypeSafe struct {
@@ -246,10 +266,14 @@ type RouterConfig struct {
 	DecisionTimeout      float64
 	MaxPromptChars       int
 	DecisionPrompt       string
-	DecisionEngine       string
-	TypeSafe             TypeSafe
-	Laya                 Laya
-	Microsoft            Microsoft
+	// DecisionReasoningEffort is sent as reasoning_effort when the decision model is a reasoning
+	// model; empty leaves the model's own default.
+	DecisionReasoningEffort string
+	DecisionEngine          string
+	TypeSafe                TypeSafe
+	Laya                    Laya
+	Microsoft               Microsoft
+	OpenAI                  OpenAIDecisions
 
 	Providers           *omap.Map // name -> *Provider
 	DefaultProviderName string
@@ -302,6 +326,7 @@ func New(raw *omap.Map) *RouterConfig {
 	}
 	c.DecisionProviderName = ai.Str("decision_provider")
 	c.DecisionTimeout = ai.Float("timeout_seconds", 5)
+	c.DecisionReasoningEffort = strings.TrimSpace(ai.Str("decision_reasoning_effort"))
 	c.MaxPromptChars = ai.Int("max_prompt_chars", 4000)
 	// Editable in the console. Empty or missing falls back to the built-in default.
 	c.DecisionPrompt = strings.TrimSpace(ai.Str("decision_prompt"))
@@ -344,6 +369,21 @@ func New(raw *omap.Map) *RouterConfig {
 	}
 	if c.Microsoft.Model == "" {
 		c.Microsoft.Model = MicrosoftDefaultModel
+	}
+	oa := orEmpty(ai.Map("openai"))
+	c.OpenAI = OpenAIDecisions{
+		APIKey:  strings.TrimSpace(oa.Str("api_key")),
+		Model:   strings.TrimSpace(oa.Str("model")),
+		BaseURL: strings.TrimRight(strings.TrimSpace(oa.Str("base_url")), "/"),
+	}
+	if c.OpenAI.APIKey == "" {
+		c.OpenAI.APIKey = EnvOpenAIAPIKey
+	}
+	if c.OpenAI.Model == "" {
+		c.OpenAI.Model = OpenAIDecisionsDefaultModel
+	}
+	if c.OpenAI.BaseURL == "" {
+		c.OpenAI.BaseURL = OpenAIDecisionsDefaultBaseURL
 	}
 
 	c.Providers = omap.New()

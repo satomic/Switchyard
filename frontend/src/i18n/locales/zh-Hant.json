@@ -1258,9 +1258,9 @@
       "maxPromptChars": "Prompt 截斷長度",
       "maxPromptCharsHint": "超出則首尾各留一半",
       "typesafe": {
-        "toggle": "使用 System One 決策模型（TypeSafe Jev、自行部署的 Laya 或 Microsoft-Decision-1）",
+        "toggle": "使用專用決策模型（TypeSafe Jev、自行部署的 Laya、Microsoft-Decision-1 或 OpenAI Decisions）",
         "badge": "高速",
-        "desc": "System One 模型專為「在固定集合中選一項」設計：模型目錄以一個 Choice 問題送出，回傳所選模型以及每個選項的機率。可以使用雲端的 <jev>TypeSafe Jev</jev> API、自行部署的 <laya>Laya</laya>，或部署在你自己 Microsoft Foundry 中的 <ms>Microsoft-Decision-1</ms>，三者協定相同。啟用後不使用下方的決策提示詞。取消勾選即回到 LLM 決策模型，所有設定都會保留。",
+        "desc": "決策模型專為「在固定集合中選一項」設計：模型目錄以一個單選問題送出，回傳所選模型以及每個選項的機率。可以使用雲端的 <jev>TypeSafe Jev</jev> API、自行部署的 <laya>Laya</laya>、部署在你自己 Microsoft Foundry 中的 <ms>Microsoft-Decision-1</ms>，或 OpenAI 的 <oa>Decisions API</oa>。啟用後不使用下方的決策提示詞。取消勾選即回到 LLM 決策模型，所有設定都會保留。",
         "apiKey": "TypeSafe API Key",
         "apiKeyHint": "在 console.typesafe.ai 建立；留空則使用環境變數 TYPESAFE_API_KEY",
         "model": "Jev 模型",
@@ -1274,7 +1274,9 @@
         "laya": "自行部署的 Laya",
         "layaDesc": "執行在你自己機器上的開源 Jev 替代品（laya-serve）。不按次計費，資料不出內網；基礎檢查點做模型路由的準確度較低。",
         "microsoft": "Microsoft-Decision-1（Microsoft Foundry）",
-        "microsoftDesc": "微軟的決策模型，部署在你自己的 Foundry 資源中，費用走你的 Azure 訂閱；請求留在你租用戶所在的區域。可以直接沿用既有 Foundry 後端連線的位址和 Key。"
+        "microsoftDesc": "微軟的決策模型，部署在你自己的 Foundry 資源中，費用走你的 Azure 訂閱；請求留在你租用戶所在的區域。可以直接沿用既有 Foundry 後端連線的位址和 Key。",
+        "openai": "OpenAI Decisions（gpt-6-luna）",
+        "openaiDesc": "OpenAI 的 Decisions API，按輸入 token 計費，走你的 OpenAI 帳號。請求格式與 System One 不同，由 Model Router 負責轉換。"
       },
       "laya": {
         "baseUrl": "Laya 位址",
@@ -1296,7 +1298,18 @@
         "model": "部署名稱",
         "modelHint": "你在 Foundry 中為這個部署取的名稱；預設 Microsoft-Decision-1",
         "fromProvider": "取自 {{value}}"
-      }
+      },
+      "openai": {
+        "apiKey": "OpenAI API Key",
+        "apiKeyHint": "留空則使用環境變數 OPENAI_API_KEY（或 .env）",
+        "model": "模型",
+        "modelHint": "預設 gpt-6-luna，目前 Decisions API 只提供這一個模型",
+        "baseUrl": "API 位址",
+        "baseUrlHint": "預設 https://api.openai.com/v1"
+      },
+      "reasoningEffort": "推理強度",
+      "reasoningEffortHint": "決策模型是推理模型；越低越快，none 不做思考",
+      "reasoningEffortDefault": "模型預設"
     },
     "rules": {
       "title": "規則路由",
@@ -1358,8 +1371,8 @@
         "translate": "把這段話翻譯成英文",
         "proof": "證明：任意連續函數在閉區間上一致連續"
       },
-      "jevUnused": "System One 模型不使用",
-      "jevLead": "TypeSafe Jev、Laya 和 Microsoft-Decision-1 都不接收系統提示詞。它們回答一個 Choice 問題，選項是模型目錄中的各個模型，每個選項的說明取自該模型的 <code>description</code>——因此真正影響決策的是模型描述。下方範本會保留，切回 LLM 決策模型時繼續生效。預覽顯示的是實際送出的請求（不含 API Key）。",
+      "jevUnused": "專用決策模型不使用",
+      "jevLead": "TypeSafe Jev、Laya、Microsoft-Decision-1 和 OpenAI Decisions 都不接收系統提示詞。它們回答一個單選問題，選項是模型目錄中的各個模型，每個選項的說明取自該模型的 <code>description</code>——因此真正影響決策的是模型描述。下方範本會保留，切回 LLM 決策模型時繼續生效。預覽顯示的是實際送出的請求（不含 API Key）。",
       "jevNoKey": "未設定 API Key",
       "trial": "實際決策一次",
       "trialHint": "用上方尚未儲存的設定，把範例請求以與線上流量完全相同的方式送給決策引擎",

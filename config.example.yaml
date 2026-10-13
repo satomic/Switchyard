@@ -165,8 +165,14 @@ ai_router:
   #   base_url: https://<resource>.services.ai.azure.com/models   # the /models suffix is fine
   #   api_key: ''                # the Foundry resource key
   #   model: Microsoft-Decision-1  # your deployment name (default Microsoft-Decision-1)
+  # "openai" asks OpenAI's Decisions API (POST /v1/decisions) the same question in its own format.
+  # openai:
+  #   api_key: ''                # empty = the OPENAI_API_KEY environment variable (or .env)
+  #   model: gpt-6-luna          # optional; the only model the Decisions API serves at launch
+  #   base_url: https://api.openai.com/v1   # optional
   decision_model: gpt-4.1
   decision_provider: foundry   # Optional; omit to use default_provider
+  # decision_reasoning_effort: none   # only when decision_model is a reasoning model: none / low / medium / high / xhigh
   timeout_seconds: 5
   max_prompt_chars: 4000
   # The system prompt for the decision model. Omitted or empty = use the built-in default.

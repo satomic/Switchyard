@@ -188,10 +188,10 @@ func RouteCombined(ctx context.Context, prompt string, cfg *config.RouterConfig,
 // RouteByAI returns (model, reason, analysis). The analysis records the decision model's
 // input, output and rationale.
 //
-// Four engines make the decision (ai_router.decision_engine): an LLM reached through the
+// Five engines make the decision (ai_router.decision_engine): an LLM reached through the
 // connection pool -- so it can use a different endpoint/key than the serving models --
-// TypeSafe's hosted Jev, a self-hosted Laya, or Microsoft-Decision-1 in Microsoft Foundry, the
-// last three on the same System One protocol. All share the analysis skeleton, the fallback to
+// TypeSafe's hosted Jev, a self-hosted Laya, Microsoft-Decision-1 in Microsoft Foundry (those
+// three on the System One protocol), or OpenAI's Decisions API. All share the analysis skeleton, the fallback to
 // the default model, and the rule that an answer outside the catalog is a failure, so the strategy above them cannot tell
 // which one ran.
 func RouteByAI(ctx context.Context, prompt string, cfg *config.RouterConfig, pool *upstream.Pool) (string, string, *omap.Map) {
@@ -221,7 +221,13 @@ func RouteByAI(ctx context.Context, prompt string, cfg *config.RouterConfig, poo
 	defer cancel()
 
 	var choice string
-	if endpoint, ok := cfg.SystemOne(); ok {
+	if cfg.DecisionEngine == "openai" {
+		picked, err := decideByOpenAI(callCtx, truncated, cfg, analysis)
+		if err != nil {
+			return fail(err.Error())
+		}
+		choice = picked
+	} else if endpoint, ok := cfg.SystemOne(); ok {
 		picked, err := decideBySystemOne(callCtx, truncated, cfg, endpoint, analysis)
 		if err != nil {
 			return fail(err.Error())
@@ -271,6 +277,18 @@ func decideByLLM(ctx context.Context, truncated string, cfg *config.RouterConfig
 		"temperature", json.Number("0"),
 		"response_format", mapOf("type", "json_object"),
 	)
+	if decision.Reasoning {
+		// Reasoning models reject max_tokens and sampling parameters (the serving path makes the
+		// same change), and spend part of the budget thinking before they answer: 120 tokens
+		// could end the answer mid-JSON, so the budget is larger.
+		body.Delete("max_tokens")
+		body.Delete("temperature")
+		body.Set("max_completion_tokens", json.Number("1024"))
+		if cfg.DecisionReasoningEffort != "" {
+			body.Set("reasoning_effort", cfg.DecisionReasoningEffort)
+		}
+		analysis.Set("decision_reasoning_effort", cfg.DecisionReasoningEffort)
+	}
 	resp, err := client.Create(ctx, decision.UpstreamModel, body)
 	if err != nil {
 		return "", err

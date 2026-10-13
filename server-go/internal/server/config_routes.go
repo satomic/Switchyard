@@ -106,7 +106,14 @@ func (a *App) previewDecisionPrompt(w http.ResponseWriter, r *http.Request) erro
 	// this request, built by the same function RouteByAI uses. The key is never part of it.
 	var systemOneRequest, systemOneURL any
 	keyMissing := false
-	if endpoint, ok := draft.SystemOne(); ok {
+	if draft.DecisionEngine == "openai" {
+		// OpenAI's Decisions API: its own wire format, shown in the same preview slot.
+		decisionModel = draft.OpenAI.Model
+		decisionProvider = "openai"
+		systemOneRequest = routing.BuildOpenAIDecisionRequest(truncated, draft)
+		systemOneURL = draft.OpenAI.BaseURL + "/decisions"
+		keyMissing = draft.OpenAI.APIKey == ""
+	} else if endpoint, ok := draft.SystemOne(); ok {
 		decisionModel = endpoint.Model
 		if decisionModel == "" {
 			decisionModel = "auto"

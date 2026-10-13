@@ -210,6 +210,10 @@ func validateAIRouter(value any, providers *omap.Map) []string {
 	}
 	errors = append(errors, validateLaya(ai, engine)...)
 	errors = append(errors, validateMicrosoft(ai, engine, providers)...)
+	errors = append(errors, validateOpenAIDecisions(ai, engine)...)
+	if effort := strings.TrimSpace(ai.Str("decision_reasoning_effort")); effort != "" && !contains(ReasoningEfforts, effort) {
+		errors = append(errors, fmt.Sprintf("ai_router.decision_reasoning_effort must be one of %s (or empty for the model's default)", strings.Join(ReasoningEfforts, ", ")))
+	}
 	if ai.Has("decision_prompt") && ai.Value("decision_prompt") != nil {
 		prompt, ok := ai.Value("decision_prompt").(string)
 		if !ok {
@@ -302,6 +306,31 @@ func validateMicrosoft(ai *omap.Map, engine string, providers *omap.Map) []strin
 	// Not repeated when the named connection was already reported as unusable.
 	if engine == "microsoft" && len(errors) == 0 &&
 		(base == "" || (key == "" && strings.TrimSpace(ms.Str("provider")) == "")) {
+		errors = append(errors, need)
+	}
+	return errors
+}
+
+// validateOpenAIDecisions checks ai_router.openai. As with TypeSafe, a missing key is only an
+// error while the engine is selected and OPENAI_API_KEY does not supply one either.
+func validateOpenAIDecisions(ai *omap.Map, engine string) []string {
+	const need = "ai_router.openai.api_key is required when decision_engine is openai (or set OPENAI_API_KEY in the environment)"
+	raw := ai.Value("openai")
+	if raw == nil {
+		if engine == "openai" && EnvOpenAIAPIKey == "" {
+			return []string{need}
+		}
+		return nil
+	}
+	oa, ok := raw.(*omap.Map)
+	if !ok {
+		return []string{"ai_router.openai must be an object"}
+	}
+	var errors []string
+	if base := strings.TrimSpace(oa.Str("base_url")); base != "" && !strings.HasPrefix(base, "https://") && !strings.HasPrefix(base, "http://") {
+		errors = append(errors, "ai_router.openai.base_url must start with http:// or https://")
+	}
+	if engine == "openai" && strings.TrimSpace(oa.Str("api_key")) == "" && EnvOpenAIAPIKey == "" {
 		errors = append(errors, need)
 	}
 	return errors

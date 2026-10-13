@@ -1292,9 +1292,9 @@
       "maxPromptChars": "Prompt truncation length",
       "maxPromptCharsHint": "beyond this, half is kept from each end",
       "typesafe": {
-        "toggle": "Use a System One decision model (TypeSafe Jev, self-hosted Laya, or Microsoft-Decision-1)",
+        "toggle": "Use a dedicated decision model (TypeSafe Jev, self-hosted Laya, Microsoft-Decision-1 or OpenAI Decisions)",
         "badge": "fast",
-        "desc": "System One models are built to pick one option from a fixed set: the model catalog is sent as a single Choice question and the model returns the pick with a probability for every option. Choose the hosted <jev>TypeSafe Jev</jev> API, a <laya>Laya</laya> you run yourself, or <ms>Microsoft-Decision-1</ms> deployed in your own Microsoft Foundry — all on the same protocol. The decision prompt below is not used. Untick to go back to the LLM decision model; no settings are lost.",
+        "desc": "Decision models are built to pick one option from a fixed set: the model catalog is sent as a single choice question and the model returns the pick with a probability for every option. Choose the hosted <jev>TypeSafe Jev</jev> API, a <laya>Laya</laya> you run yourself, <ms>Microsoft-Decision-1</ms> deployed in your own Microsoft Foundry, or OpenAI's <oa>Decisions API</oa>. The decision prompt below is not used. Untick to go back to the LLM decision model; no settings are lost.",
         "apiKey": "TypeSafe API key",
         "apiKeyHint": "from console.typesafe.ai; leave empty to use the TYPESAFE_API_KEY environment variable",
         "model": "Jev model",
@@ -1308,7 +1308,9 @@
         "laya": "Self-hosted Laya",
         "layaDesc": "An open-source Jev alternative running on your own machine (laya-serve). No per-call cost and no data leaves your network; its base checkpoints are less accurate for routing.",
         "microsoft": "Microsoft-Decision-1 (Microsoft Foundry)",
-        "microsoftDesc": "Microsoft’s decision model, deployed in your own Foundry resource and billed to your Azure subscription. Requests stay in your tenant’s region; it can reuse the address and key of an existing Foundry connection."
+        "microsoftDesc": "Microsoft’s decision model, deployed in your own Foundry resource and billed to your Azure subscription. Requests stay in your tenant’s region; it can reuse the address and key of an existing Foundry connection.",
+        "openai": "OpenAI Decisions (gpt-6-luna)",
+        "openaiDesc": "OpenAI's Decisions API, billed per input token to your OpenAI account. Uses its own request format, not System One; Model Router translates."
       },
       "laya": {
         "baseUrl": "Laya address",
@@ -1330,7 +1332,18 @@
         "model": "Deployment name",
         "modelHint": "the name you gave the deployment in Foundry; default Microsoft-Decision-1",
         "fromProvider": "from {{value}}"
-      }
+      },
+      "openai": {
+        "apiKey": "OpenAI API key",
+        "apiKeyHint": "leave empty to use the OPENAI_API_KEY environment variable (or .env)",
+        "model": "Model",
+        "modelHint": "default gpt-6-luna, currently the only model the Decisions API serves",
+        "baseUrl": "API base URL",
+        "baseUrlHint": "default https://api.openai.com/v1"
+      },
+      "reasoningEffort": "Reasoning effort",
+      "reasoningEffortHint": "the decision model is a reasoning model; lower is faster, none skips thinking",
+      "reasoningEffortDefault": "model default"
     },
     "rules": {
       "title": "Rule routing",
@@ -1395,8 +1408,8 @@
         "translate": "Translate this passage into English",
         "proof": "Prove: every continuous function on a closed interval is uniformly continuous"
       },
-      "jevUnused": "not used by System One models",
-      "jevLead": "TypeSafe Jev, Laya and Microsoft-Decision-1 take no system prompt. They are asked one Choice question whose options are the models in the catalog, each described by its <code>description</code> — so the descriptions are what steer them. The template below is kept for when you switch back to the LLM decision model. The preview shows the exact request that is sent (the API key is never part of it).",
+      "jevUnused": "not used by decision models",
+      "jevLead": "TypeSafe Jev, Laya, Microsoft-Decision-1 and OpenAI Decisions take no system prompt. They are asked one choice question whose options are the models in the catalog, each described by its <code>description</code> — so the descriptions are what steer them. The template below is kept for when you switch back to the LLM decision model. The preview shows the exact request that is sent (the API key is never part of it).",
       "jevNoKey": "no API key set",
       "trial": "Run a real decision",
       "trialHint": "Send the sample request to the decision engine with the unsaved settings above, exactly as live traffic would",

@@ -230,6 +230,35 @@ sent to the decision model**:
      gpt-4.1-mini LLM. Full data in
      `articles/microsoft-decision-1/`.
 
+   **OpenAI's Decisions API (optional, Go backend)**: OpenAI's
+   [Decisions API](https://developers.openai.com/api/docs/guides/decisions) answers the same kind of
+   closed question with `gpt-6-luna`, in its own wire format: `POST /v1/decisions` with the request
+   as `input` and a `questions` array whose choice question lists `{value, description}` pairs.
+   Choosing **OpenAI Decisions** under the same checkbox (`ai_router.decision_engine: openai`) makes
+   the router build that request from the catalog and read the answer's `[{value, probability}]`
+   back into the same trace fields Jev's answer uses.
+
+   ```yaml
+   ai_router:
+     decision_engine: openai
+     openai:
+       api_key: sk-...           # optional: empty = OPENAI_API_KEY (environment or .env)
+       model: gpt-6-luna         # optional
+       base_url: https://api.openai.com/v1   # optional
+   ```
+
+   - Up to 255 choices per question. Billed per input token ($0.10 per million for gpt-6-luna);
+     output is free.
+   - A wrong key, an unavailable model or a `refusal` answer falls back to the default model, with
+     the API's message in the trace.
+
+   **A reasoning model as the LLM decision model**: when `decision_model` is marked
+   `reasoning: true` in the catalog (gpt-6-luna, gpt-5.x), the decision call sends
+   `max_completion_tokens` instead of `max_tokens` and no `temperature`, as the serving path does,
+   with a larger budget because the model thinks before it answers. `ai_router.decision_reasoning_effort`
+   (`none` / `low` / `medium` / `high` / `xhigh`) is passed through as `reasoning_effort`; empty leaves
+   the model's default. With gpt-6-luna, `none` roughly halves the decision time.
+
 **4. Both at once (`strategy: rule-then-ai`)**: the rules and the decision model are **both** active
 (`route_combined`). The rules are evaluated first, exactly as in step 2; a match returns that rule's
 model immediately and **no decision call is made**. Only a request no rule matched is handed to the

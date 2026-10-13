@@ -1258,9 +1258,9 @@
       "maxPromptChars": "프롬프트 자르기 길이",
       "maxPromptCharsHint": "초과하면 앞뒤로 절반씩 남깁니다",
       "typesafe": {
-        "toggle": "System One 결정 모델 사용 (TypeSafe Jev, 자체 배포 Laya 또는 Microsoft-Decision-1)",
+        "toggle": "전용 결정 모델 사용 (TypeSafe Jev, 자체 배포 Laya, Microsoft-Decision-1 또는 OpenAI Decisions)",
         "badge": "고속",
-        "desc": "System One 모델은 정해진 선택지 중 하나를 고르도록 만들어졌습니다. 모델 카탈로그를 하나의 Choice 질문으로 보내면 선택한 모델과 각 선택지의 확률을 반환합니다. 클라우드 <jev>TypeSafe Jev</jev> API, 직접 운영하는 <laya>Laya</laya>, 또는 자체 Microsoft Foundry에 배포한 <ms>Microsoft-Decision-1</ms>을 쓸 수 있으며, 모두 같은 프로토콜입니다. 아래 결정 프롬프트는 사용되지 않습니다. 체크를 해제하면 LLM 결정 모델로 돌아가며 설정은 모두 유지됩니다.",
+        "desc": "결정 모델은 정해진 선택지 중 하나를 고르도록 만들어졌습니다. 모델 카탈로그를 하나의 선택형 질문으로 보내면 선택한 모델과 각 선택지의 확률을 반환합니다. 클라우드 <jev>TypeSafe Jev</jev> API, 직접 운영하는 <laya>Laya</laya>, 자체 Microsoft Foundry에 배포한 <ms>Microsoft-Decision-1</ms>, 또는 OpenAI의 <oa>Decisions API</oa>를 쓸 수 있습니다. 아래 결정 프롬프트는 사용되지 않습니다. 체크를 해제하면 LLM 결정 모델로 돌아가며 설정은 모두 유지됩니다.",
         "apiKey": "TypeSafe API 키",
         "apiKeyHint": "console.typesafe.ai에서 발급. 비워 두면 환경 변수 TYPESAFE_API_KEY 사용",
         "model": "Jev 모델",
@@ -1274,7 +1274,9 @@
         "laya": "자체 배포 Laya",
         "layaDesc": "직접 운영하는 오픈소스 Jev 대안(laya-serve). 호출당 비용이 없고 데이터가 내부망을 벗어나지 않습니다. 기본 체크포인트의 라우팅 정확도는 낮은 편입니다.",
         "microsoft": "Microsoft-Decision-1 (Microsoft Foundry)",
-        "microsoftDesc": "Microsoft의 결정 모델. 자체 Foundry 리소스에 배포하고 Azure 구독으로 과금됩니다. 요청은 테넌트 리전 안에 머무르며, 기존 Foundry 연결의 주소와 키를 재사용할 수 있습니다."
+        "microsoftDesc": "Microsoft의 결정 모델. 자체 Foundry 리소스에 배포하고 Azure 구독으로 과금됩니다. 요청은 테넌트 리전 안에 머무르며, 기존 Foundry 연결의 주소와 키를 재사용할 수 있습니다.",
+        "openai": "OpenAI Decisions (gpt-6-luna)",
+        "openaiDesc": "OpenAI의 Decisions API. 입력 토큰 기준으로 OpenAI 계정에 과금됩니다. 요청 형식이 System One과 달라 Model Router가 변환합니다."
       },
       "laya": {
         "baseUrl": "Laya 주소",
@@ -1296,7 +1298,18 @@
         "model": "배포 이름",
         "modelHint": "Foundry에서 배포에 붙인 이름. 기본값 Microsoft-Decision-1",
         "fromProvider": "{{value}}에서 가져옴"
-      }
+      },
+      "openai": {
+        "apiKey": "OpenAI API 키",
+        "apiKeyHint": "비워 두면 환경 변수 OPENAI_API_KEY(또는 .env)를 사용합니다",
+        "model": "모델",
+        "modelHint": "기본값 gpt-6-luna, 현재 Decisions API가 제공하는 유일한 모델",
+        "baseUrl": "API 기본 URL",
+        "baseUrlHint": "기본값 https://api.openai.com/v1"
+      },
+      "reasoningEffort": "추론 강도",
+      "reasoningEffortHint": "결정 모델이 추론 모델일 때. 낮을수록 빠르며 none은 추론을 생략합니다",
+      "reasoningEffortDefault": "모델 기본값"
     },
     "rules": {
       "title": "규칙 라우팅",
@@ -1358,8 +1371,8 @@
         "translate": "이 문장을 영어로 번역해 주세요",
         "proof": "증명하시오: 닫힌 구간에서 임의의 연속 함수는 균등 연속이다"
       },
-      "jevUnused": "System One 모델에서는 사용 안 함",
-      "jevLead": "TypeSafe Jev, Laya, Microsoft-Decision-1은 시스템 프롬프트를 받지 않습니다. 카탈로그의 모델들을 선택지로 하는 Choice 질문 하나에 답하며, 각 선택지의 설명은 모델의 <code>description</code>에서 가져옵니다. 따라서 결정을 좌우하는 것은 모델 설명입니다. 아래 템플릿은 LLM 결정 모델로 돌아갈 때를 위해 유지됩니다. 미리보기는 실제로 전송되는 요청입니다(API 키는 포함되지 않음).",
+      "jevUnused": "결정 모델에서는 사용 안 함",
+      "jevLead": "TypeSafe Jev, Laya, Microsoft-Decision-1, OpenAI Decisions는 시스템 프롬프트를 받지 않습니다. 카탈로그의 모델들을 선택지로 하는 선택형 질문 하나에 답하며, 각 선택지의 설명은 모델의 <code>description</code>에서 가져옵니다. 따라서 결정을 좌우하는 것은 모델 설명입니다. 아래 템플릿은 LLM 결정 모델로 돌아갈 때를 위해 유지됩니다. 미리보기는 실제로 전송되는 요청입니다(API 키는 포함되지 않음).",
       "jevNoKey": "API 키 미설정",
       "trial": "실제로 결정해 보기",
       "trialHint": "위의 저장되지 않은 설정으로, 샘플 요청을 실제 트래픽과 똑같이 결정 엔진에 보냅니다",

@@ -49,9 +49,11 @@ export default function RoutingFlow({
           ? `TypeSafe ${cfg.ai_router.typesafe?.model || 'jev-latest'}`
           : cfg.ai_router.decision_engine === 'laya'
             ? `Laya ${cfg.ai_router.laya?.model || 'auto'}`
-            : cfg.ai_router.decision_engine === 'microsoft'
-              ? `Foundry ${cfg.ai_router.microsoft?.model || 'Microsoft-Decision-1'}`
-              : cfg.ai_router.decision_model || notSet,
+            : cfg.ai_router.decision_engine === 'openai'
+              ? `OpenAI ${cfg.ai_router.openai?.model || 'gpt-6-luna'}`
+              : cfg.ai_router.decision_engine === 'microsoft'
+                ? `Foundry ${cfg.ai_router.microsoft?.model || 'Microsoft-Decision-1'}`
+                : cfg.ai_router.decision_model || notSet,
       note: t('config.flow.aiNote'),
       mono: true,
     },
