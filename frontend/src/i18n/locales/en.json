@@ -1408,15 +1408,18 @@
         "translate": "Translate this passage into English",
         "proof": "Prove: every continuous function on a closed interval is uniformly continuous"
       },
-      "jevUnused": "not used by decision models",
-      "jevLead": "TypeSafe Jev, Laya, Microsoft-Decision-1 and OpenAI Decisions take no system prompt. They are asked one choice question whose options are the models in the catalog, each described by its <code>description</code> — so the descriptions are what steer them. The template below is kept for when you switch back to the LLM decision model. The preview shows the exact request that is sent (the API key is never part of it).",
+      "jevUnused": "LLM prompt not used",
+      "jevLead": "TypeSafe Jev, Laya, Microsoft-Decision-1 and OpenAI Decisions take no system prompt. They are asked one choice question: the <code>instructions</code> below, whose options are the models in the catalog, each described by its <code>description</code>. All four engines get the same instructions. Keep them neutral and let the descriptions carry the trade-offs: a leaning sentence such as “prefer a cheaper model” sways some engines much more than others. The LLM prompt template is kept for when you switch back. The preview shows the exact request that is sent (the API key is never part of it).",
       "jevNoKey": "no API key set",
       "trial": "Run a real decision",
       "trialHint": "Send the sample request to the decision engine with the unsaved settings above, exactly as live traffic would",
       "trialRunning": "Deciding…",
       "trialPicked": "Picked",
       "trialLatency": "{{ms}} ms",
-      "trialFailed": "Failed, so the request would go to the default model {{model}}:"
+      "trialFailed": "Failed, so the request would go to the default model {{model}}:",
+      "instructions": "Instructions",
+      "instructionsHint": "the question every decision model is asked; empty = the neutral default",
+      "instructionsLoadDefault": "Load the default instructions"
     },
     "list": {
       "search": "Search",

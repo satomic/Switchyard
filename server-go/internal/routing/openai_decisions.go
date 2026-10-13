@@ -11,13 +11,6 @@ import (
 	"github.com/satomic/model-router/server-go/internal/upstream"
 )
 
-// OpenAIDecisionInstructions is the choice question asked of OpenAI's Decisions API. It is the
-// System One wording with `user_request` dropped: here the request is the whole `input`, not a
-// named field of a state object.
-const OpenAIDecisionInstructions = "Which backend model should handle this request? " +
-	"Pick the option whose description best matches what the request needs. " +
-	"Prefer a cheaper, faster model when the request is simple, and a stronger model only when the request needs it."
-
 // BuildOpenAIDecisionRequest is the POST /v1/decisions body for one routing decision: the
 // user's request as the input, and one choice question whose choices are the model catalog,
 // each described by its catalog description. Exported so the console's preview shows it.
@@ -37,7 +30,7 @@ func BuildOpenAIDecisionRequest(truncated string, cfg *config.RouterConfig) *oma
 		"questions", []any{mapOf(
 			"type", "choice",
 			"name", SystemOneQuestionID,
-			"instructions", OpenAIDecisionInstructions,
+			"instructions", cfg.DecisionInstructions,
 			"choices", choices,
 		)},
 	)

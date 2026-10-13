@@ -252,6 +252,13 @@ sent to the decision model**:
    - A wrong key, an unavailable model or a `refusal` answer falls back to the default model, with
      the API's message in the trace.
 
+   **The instructions**: every dedicated engine (Jev, Laya, Microsoft-Decision-1, OpenAI Decisions)
+   is asked the same question text, `ai_router.decision_instructions`. Empty means the built-in
+   default, "Which backend model should handle this request? Pick the option whose description best
+   matches what the request needs." Before 2.4.1 the text was fixed, differed slightly by engine and
+   ended with "Prefer a cheaper, faster model when the request is simple…"; that sentence pulled
+   OpenAI Decisions in particular towards the cheapest model, so the default is now neutral.
+
    **A reasoning model as the LLM decision model**: when `decision_model` is marked
    `reasoning: true` in the catalog (gpt-6-luna, gpt-5.x), the decision call sends
    `max_completion_tokens` instead of `max_tokens` and no `temperature`, as the serving path does,

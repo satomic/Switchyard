@@ -214,6 +214,13 @@ func validateAIRouter(value any, providers *omap.Map) []string {
 	if effort := strings.TrimSpace(ai.Str("decision_reasoning_effort")); effort != "" && !contains(ReasoningEfforts, effort) {
 		errors = append(errors, fmt.Sprintf("ai_router.decision_reasoning_effort must be one of %s (or empty for the model's default)", strings.Join(ReasoningEfforts, ", ")))
 	}
+	if ai.Has("decision_instructions") && ai.Value("decision_instructions") != nil {
+		if text, ok := ai.Value("decision_instructions").(string); !ok {
+			errors = append(errors, "ai_router.decision_instructions must be a string")
+		} else if n := len([]rune(strings.TrimSpace(text))); n > MaxDecisionInstructionsChars {
+			errors = append(errors, fmt.Sprintf("ai_router.decision_instructions is %d characters, at most %d allowed", n, MaxDecisionInstructionsChars))
+		}
+	}
 	if ai.Has("decision_prompt") && ai.Value("decision_prompt") != nil {
 		prompt, ok := ai.Value("decision_prompt").(string)
 		if !ok {

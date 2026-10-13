@@ -53,3 +53,18 @@ func TestValidateDecisionReasoningEffort(t *testing.T) {
 		t.Errorf("errors = %q", errs)
 	}
 }
+
+func TestValidateDecisionInstructions(t *testing.T) {
+	if errs := validateAIRouter(aiRouterDoc(t, "decision_instructions: Pick one.\n"), nil); len(errs) != 0 {
+		t.Errorf("a string should be valid: %v", errs)
+	}
+	errs := strings.Join(validateAIRouter(aiRouterDoc(t, "decision_instructions: [a, b]\n"), nil), "; ")
+	if !strings.Contains(errs, "decision_instructions must be a string") {
+		t.Errorf("errors = %q", errs)
+	}
+	long := strings.Repeat("x", MaxDecisionInstructionsChars+1)
+	errs = strings.Join(validateAIRouter(aiRouterDoc(t, "decision_instructions: "+long+"\n"), nil), "; ")
+	if !strings.Contains(errs, "at most") {
+		t.Errorf("errors = %q", errs)
+	}
+}

@@ -332,6 +332,9 @@ export interface RouterConfig {
     /** The system prompt for the AI decision, carrying the {catalog} placeholder. Empty = use
      *  the backend's built-in default. */
     decision_prompt?: string
+    /** The question every dedicated decision model (Jev, Laya, Microsoft-Decision-1, OpenAI
+     *  Decisions) is asked. Empty = DEFAULT_DECISION_INSTRUCTIONS. */
+    decision_instructions?: string
   }
   providers: Record<string, ProviderMeta>
   default_provider: string
@@ -1160,3 +1163,8 @@ export async function sendChat(opts: {
   }
   return { ...meta, content }
 }
+
+/** Mirrors config.DefaultDecisionInstructions in the Go backend: what dedicated decision models
+ *  are asked when ai_router.decision_instructions is empty. */
+export const DEFAULT_DECISION_INSTRUCTIONS =
+  'Which backend model should handle this request? Pick the option whose description best matches what the request needs.'

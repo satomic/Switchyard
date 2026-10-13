@@ -1371,15 +1371,18 @@
         "translate": "この文章を英語に翻訳してください",
         "proof": "証明せよ：閉区間上の任意の連続関数は一様連続である"
       },
-      "jevUnused": "判定モデルでは未使用",
-      "jevLead": "TypeSafe Jev、Laya、Microsoft-Decision-1、OpenAI Decisions はシステムプロンプトを受け取りません。カタログ内のモデルを選択肢とする 1 つの選択式の質問に答え、各選択肢の説明にはモデルの <code>description</code> が使われます。つまり判定を左右するのはモデルの説明です。下のテンプレートは LLM の判定モデルに戻したときのために保持されます。プレビューは実際に送信されるリクエストです（API キーは含みません）。",
+      "jevUnused": "LLM プロンプトは不使用",
+      "jevLead": "TypeSafe Jev、Laya、Microsoft-Decision-1、OpenAI Decisions はシステムプロンプトを使いません。1 つの選択問題に答えます。質問は下の <code>instructions</code>、選択肢はモデルカタログのモデルで、それぞれ <code>description</code> で説明されます。4 つのエンジンはすべて同じ指示を受け取ります。指示は中立に保ち、トレードオフはモデルの説明に書くことを推奨します。「安いモデルを優先」のような偏った一文は、エンジンによって影響の大きさが大きく異なります。LLM のプロンプトテンプレートは LLM に戻したときのために保持されます。プレビューには実際に送信されるリクエストが表示されます（API キーは含まれません）。",
       "jevNoKey": "API キー未設定",
       "trial": "実際に判定する",
       "trialHint": "上の未保存の設定で、サンプルのリクエストを本番トラフィックと同じ方法で判定エンジンに送ります",
       "trialRunning": "判定中…",
       "trialPicked": "選択",
       "trialLatency": "{{ms}} ms",
-      "trialFailed": "失敗したため、このリクエストは既定のモデル {{model}} に送られます:"
+      "trialFailed": "失敗したため、このリクエストは既定のモデル {{model}} に送られます:",
+      "instructions": "決定指示（instructions）",
+      "instructionsHint": "すべての専用決定モデルに共通の質問。空欄なら中立的な既定の指示",
+      "instructionsLoadDefault": "既定の指示を読み込む"
     },
     "list": {
       "search": "検索",

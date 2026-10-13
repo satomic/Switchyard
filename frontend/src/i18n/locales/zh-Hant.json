@@ -1371,15 +1371,18 @@
         "translate": "把這段話翻譯成英文",
         "proof": "證明：任意連續函數在閉區間上一致連續"
       },
-      "jevUnused": "專用決策模型不使用",
-      "jevLead": "TypeSafe Jev、Laya、Microsoft-Decision-1 和 OpenAI Decisions 都不接收系統提示詞。它們回答一個單選問題，選項是模型目錄中的各個模型，每個選項的說明取自該模型的 <code>description</code>——因此真正影響決策的是模型描述。下方範本會保留，切回 LLM 決策模型時繼續生效。預覽顯示的是實際送出的請求（不含 API Key）。",
+      "jevUnused": "不使用 LLM 提示詞",
+      "jevLead": "TypeSafe Jev、Laya、Microsoft-Decision-1 和 OpenAI Decisions 不使用系統提示詞。它們回答一道單選題：題目是下面的 <code>instructions</code>，選項是模型目錄裡的模型，每個模型用它的 <code>description</code> 描述。四種引擎使用同一段指令。建議保持中性，把取捨寫進模型描述：像「優先選便宜模型」這樣帶傾向的話，對不同引擎的影響差別很大。LLM 的提示詞範本會保留，切回 LLM 時使用。預覽顯示實際送出的請求（不含 API key）。",
       "jevNoKey": "未設定 API Key",
       "trial": "實際決策一次",
       "trialHint": "用上方尚未儲存的設定，把範例請求以與線上流量完全相同的方式送給決策引擎",
       "trialRunning": "決策中…",
       "trialPicked": "選中",
       "trialLatency": "{{ms}} 毫秒",
-      "trialFailed": "決策失敗，該請求會交給預設模型 {{model}}："
+      "trialFailed": "決策失敗，該請求會交給預設模型 {{model}}：",
+      "instructions": "決策指令（instructions）",
+      "instructionsHint": "所有專用決策模型共用的問題；留空即使用中性的預設指令",
+      "instructionsLoadDefault": "載入預設指令"
     },
     "list": {
       "search": "搜尋",

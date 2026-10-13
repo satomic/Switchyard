@@ -170,6 +170,13 @@ ai_router:
   #   api_key: ''                # empty = the OPENAI_API_KEY environment variable (or .env)
   #   model: gpt-6-luna          # optional; the only model the Decisions API serves at launch
   #   base_url: https://api.openai.com/v1   # optional
+  # The question every dedicated decision model (typesafe / laya / microsoft / openai) is asked.
+  # Omitted or empty = the neutral built-in default below. Keep it neutral and let the model
+  # descriptions carry the trade-offs: a leaning sentence such as "prefer a cheaper model" sways
+  # some engines far more than others.
+  # decision_instructions: >-
+  #   Which backend model should handle this request? Pick the option whose description best
+  #   matches what the request needs.
   decision_model: gpt-4.1
   decision_provider: foundry   # Optional; omit to use default_provider
   # decision_reasoning_effort: none   # only when decision_model is a reasoning model: none / low / medium / high / xhigh

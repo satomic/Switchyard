@@ -1371,15 +1371,18 @@
         "translate": "이 문장을 영어로 번역해 주세요",
         "proof": "증명하시오: 닫힌 구간에서 임의의 연속 함수는 균등 연속이다"
       },
-      "jevUnused": "결정 모델에서는 사용 안 함",
-      "jevLead": "TypeSafe Jev, Laya, Microsoft-Decision-1, OpenAI Decisions는 시스템 프롬프트를 받지 않습니다. 카탈로그의 모델들을 선택지로 하는 선택형 질문 하나에 답하며, 각 선택지의 설명은 모델의 <code>description</code>에서 가져옵니다. 따라서 결정을 좌우하는 것은 모델 설명입니다. 아래 템플릿은 LLM 결정 모델로 돌아갈 때를 위해 유지됩니다. 미리보기는 실제로 전송되는 요청입니다(API 키는 포함되지 않음).",
+      "jevUnused": "LLM 프롬프트 미사용",
+      "jevLead": "TypeSafe Jev, Laya, Microsoft-Decision-1, OpenAI Decisions는 시스템 프롬프트를 사용하지 않습니다. 하나의 선택형 질문에 답합니다. 질문은 아래 <code>instructions</code>이고, 선택지는 모델 카탈로그의 모델이며 각각 <code>description</code>으로 설명됩니다. 네 엔진 모두 같은 지시문을 받습니다. 지시문은 중립적으로 두고 장단점은 모델 설명에 적는 것을 권장합니다. “저렴한 모델 우선” 같은 치우친 문장은 엔진마다 영향의 크기가 크게 다릅니다. LLM 프롬프트 템플릿은 LLM으로 돌아갈 때를 위해 유지됩니다. 미리보기에는 실제로 전송되는 요청이 표시됩니다(API 키는 포함되지 않음).",
       "jevNoKey": "API 키 미설정",
       "trial": "실제로 결정해 보기",
       "trialHint": "위의 저장되지 않은 설정으로, 샘플 요청을 실제 트래픽과 똑같이 결정 엔진에 보냅니다",
       "trialRunning": "결정 중…",
       "trialPicked": "선택",
       "trialLatency": "{{ms}} ms",
-      "trialFailed": "실패하여 이 요청은 기본 모델 {{model}}(으)로 갑니다:"
+      "trialFailed": "실패하여 이 요청은 기본 모델 {{model}}(으)로 갑니다:",
+      "instructions": "결정 지시문(instructions)",
+      "instructionsHint": "모든 전용 결정 모델이 공통으로 받는 질문. 비워 두면 중립적인 기본 지시문",
+      "instructionsLoadDefault": "기본 지시문 불러오기"
     },
     "list": {
       "search": "검색",

@@ -83,6 +83,16 @@ type OpenAIDecisions struct {
 	BaseURL string
 }
 
+// DefaultDecisionInstructions is the question every dedicated decision model (Jev, Laya,
+// Microsoft-Decision-1, OpenAI Decisions) is asked when ai_router.decision_instructions is empty.
+// It is deliberately neutral: the model descriptions carry the trade-offs, and a leaning
+// sentence such as "prefer a cheaper model" sways some engines far more than others.
+const DefaultDecisionInstructions = "Which backend model should handle this request? " +
+	"Pick the option whose description best matches what the request needs."
+
+// MaxDecisionInstructionsChars caps ai_router.decision_instructions.
+const MaxDecisionInstructionsChars = 2000
+
 // ReasoningEfforts are the values ai_router.decision_reasoning_effort may take (empty = the model's default).
 var ReasoningEfforts = []string{"none", "minimal", "low", "medium", "high", "xhigh"}
 
@@ -269,11 +279,14 @@ type RouterConfig struct {
 	// DecisionReasoningEffort is sent as reasoning_effort when the decision model is a reasoning
 	// model; empty leaves the model's own default.
 	DecisionReasoningEffort string
-	DecisionEngine          string
-	TypeSafe                TypeSafe
-	Laya                    Laya
-	Microsoft               Microsoft
-	OpenAI                  OpenAIDecisions
+	// DecisionInstructions is the question asked of every dedicated decision model, the same
+	// text whichever engine is selected. Empty in config.yaml means DefaultDecisionInstructions.
+	DecisionInstructions string
+	DecisionEngine       string
+	TypeSafe             TypeSafe
+	Laya                 Laya
+	Microsoft            Microsoft
+	OpenAI               OpenAIDecisions
 
 	Providers           *omap.Map // name -> *Provider
 	DefaultProviderName string
@@ -327,6 +340,10 @@ func New(raw *omap.Map) *RouterConfig {
 	c.DecisionProviderName = ai.Str("decision_provider")
 	c.DecisionTimeout = ai.Float("timeout_seconds", 5)
 	c.DecisionReasoningEffort = strings.TrimSpace(ai.Str("decision_reasoning_effort"))
+	c.DecisionInstructions = strings.TrimSpace(ai.Str("decision_instructions"))
+	if c.DecisionInstructions == "" {
+		c.DecisionInstructions = DefaultDecisionInstructions
+	}
 	c.MaxPromptChars = ai.Int("max_prompt_chars", 4000)
 	// Editable in the console. Empty or missing falls back to the built-in default.
 	c.DecisionPrompt = strings.TrimSpace(ai.Str("decision_prompt"))

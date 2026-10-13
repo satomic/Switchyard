@@ -1371,15 +1371,18 @@
         "translate": "把这段话翻译成英文",
         "proof": "证明：任意连续函数在闭区间上一致连续"
       },
-      "jevUnused": "专用决策模型不使用",
-      "jevLead": "TypeSafe Jev、Laya、Microsoft-Decision-1 和 OpenAI Decisions 都不接收系统提示词。它们回答一个单选问题，选项是模型目录中的各个模型，每个选项的说明取自该模型的 <code>description</code>——因此真正影响决策的是模型描述。下方模板会保留，切回 LLM 决策模型时继续生效。预览展示的是实际发送的请求（不含 API Key）。",
+      "jevUnused": "不使用 LLM 提示词",
+      "jevLead": "TypeSafe Jev、Laya、Microsoft-Decision-1 和 OpenAI Decisions 不使用系统提示词。它们回答一道单选题：题目是下面的 <code>instructions</code>，选项是模型目录里的模型，每个模型用它的 <code>description</code> 描述。四种引擎使用同一段指令。建议保持中性，把取舍写进模型描述：像「优先选便宜模型」这样带倾向的话，对不同引擎的影响差别很大。LLM 的提示词模板会保留，切回 LLM 时使用。预览显示实际发送的请求（不含 API key）。",
       "jevNoKey": "未设置 API Key",
       "trial": "实际决策一次",
       "trialHint": "用上方尚未保存的设置，把示例请求按线上流量完全相同的方式发给决策引擎",
       "trialRunning": "决策中…",
       "trialPicked": "选中",
       "trialLatency": "{{ms}} 毫秒",
-      "trialFailed": "决策失败，该请求会交给默认模型 {{model}}："
+      "trialFailed": "决策失败，该请求会交给默认模型 {{model}}：",
+      "instructions": "决策指令（instructions）",
+      "instructionsHint": "所有专用决策模型共用的问题；留空即使用中性的默认指令",
+      "instructionsLoadDefault": "载入默认指令"
     },
     "list": {
       "search": "搜索",

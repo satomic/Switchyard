@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import {
+  DEFAULT_DECISION_INSTRUCTIONS,
   getDefaultDecisionPrompt,
   isSystemOne,
   previewDecisionPrompt,
@@ -45,6 +46,11 @@ export default function DecisionPromptPanel({ cfg, set, notify, goto }: SectionP
       .then(({ prompt: text }) => setDefaultTemplate(text))
       .catch(() => setDefaultTemplate(''))
   }, [])
+
+  const instructions = cfg.ai_router.decision_instructions ?? ''
+  const setInstructions = (value: string) =>
+    // Empty means the built-in neutral default, so it is not stored.
+    set({ ai_router: { ...cfg.ai_router, decision_instructions: value.trim() ? value : undefined } })
 
   const setPrompt = (value: string) =>
     // An empty string is stored as undefined: config.yaml keeps no empty field, and the
@@ -127,6 +133,31 @@ export default function DecisionPromptPanel({ cfg, set, notify, goto }: SectionP
             <Trans i18nKey="config.prompt.jevLead" components={{ code: <code /> }} />
           </p>
         )}
+        {useJev && (<>
+          <label className="field">
+            <span className="field-name">
+              {t('config.prompt.instructions')}
+              <span className="field-hint">{t('config.prompt.instructionsHint')}</span>
+            </span>
+            <textarea
+              className="mono"
+              rows={3}
+              spellCheck={false}
+              maxLength={2000}
+              value={instructions}
+              placeholder={DEFAULT_DECISION_INSTRUCTIONS}
+              onChange={(e) => setInstructions(e.target.value)}
+            />
+          </label>
+          <div className="prompt-actions">
+            <button className="btn ghost sm" onClick={() => setInstructions(DEFAULT_DECISION_INSTRUCTIONS)}>
+              {t('config.prompt.instructionsLoadDefault')}
+            </button>
+            <button className="btn ghost sm" onClick={() => setInstructions('')} disabled={!instructions}>
+              {t('config.prompt.clear')}
+            </button>
+          </div>
+        </>)}
         {!useJev && (<>
         <p className="panel-note">
           <Trans

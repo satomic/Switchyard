@@ -322,13 +322,6 @@ func decideByLLM(ctx context.Context, truncated string, cfg *config.RouterConfig
 	return data.Str("model"), nil
 }
 
-// SystemOneInstructions is the Choice question Jev (or Laya, or Microsoft-Decision-1) answers. Jev reads its
-// instructions literally, so this says exactly what to weigh rather than leaving "best" to
-// interpretation; the model descriptions carry the rest, one per option.
-const SystemOneInstructions = "Which backend model should handle `user_request`? " +
-	"Pick the option whose description best matches what the request needs. " +
-	"Prefer a cheaper, faster model when the request is simple, and a stronger model only when the request needs it."
-
 // SystemOneQuestionID is the key the routing question is asked (and answered) under.
 const SystemOneQuestionID = "model"
 
@@ -357,7 +350,7 @@ func BuildSystemOneRequest(truncated string, cfg *config.RouterConfig, endpoint 
 	body.Set("questions", mapOf(
 		SystemOneQuestionID, mapOf(
 			"type", "choice",
-			"instructions", SystemOneInstructions,
+			"instructions", cfg.DecisionInstructions,
 			"criteria", criteria,
 		),
 	))
