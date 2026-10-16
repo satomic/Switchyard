@@ -3,7 +3,7 @@ package version
 
 import "strings"
 
-const Version = "2.4.1"
+const Version = "2.4.2"
 
 const (
 	RepoURL     = "https://github.com/satomic/model-router"

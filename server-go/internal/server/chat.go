@@ -801,14 +801,25 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request, ctx *callContext) er
 		}
 		body := payload.Clone()
 		body.Set("model", resolved.UpstreamModel)
+		note := func(s string) {
+			backend := ctx.Trace.Map("backend")
+			backend.Set("adjusted", s)
+			if sent := backend.Map("sent_params"); sent != nil {
+				sent.Set("reasoning_effort", body.Value("reasoning_effort"))
+			}
+		}
 		if streaming {
-			source, err := openOpenAIStream(r.Context(), client, resolved.UpstreamModel, body)
+			source, err := withEffortRetry(resolved.Reasoning, resolved.Provider.Name, resolved.UpstreamModel, body, note,
+				func(b *omap.Map) (chunkSource, error) {
+					return openOpenAIStream(r.Context(), client, resolved.UpstreamModel, b)
+				})
 			if err != nil {
 				return fail(err)
 			}
 			chunks = source
 		} else {
-			data, err := client.Create(r.Context(), resolved.UpstreamModel, body)
+			data, err := withEffortRetry(resolved.Reasoning, resolved.Provider.Name, resolved.UpstreamModel, body, note,
+				func(b *omap.Map) (*omap.Map, error) { return client.Create(r.Context(), resolved.UpstreamModel, b) })
 			if err != nil {
 				return fail(err)
 			}
