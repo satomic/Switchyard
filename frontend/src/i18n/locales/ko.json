@@ -610,9 +610,10 @@
       "close": "예시 닫기",
       "rowTitle": "{{name}} 키의 명령줄 사용법",
       "byokTitle": "GitHub Copilot에서 BYOK로 사용하기",
-      "protocolHint": "같은 키로 두 프로토콜을 모두 쓸 수 있고, 변환은 라우터가 처리합니다",
+      "protocolHint": "같은 키로 세 프로토콜을 모두 쓸 수 있고, 변환은 라우터가 처리합니다",
       "protocol": {
-        "openai": "OpenAI 호환",
+        "openai": "OpenAI Chat Completions",
+        "responses": "OpenAI Responses",
         "anthropic": "Anthropic 호환"
       },
       "modelHint": "「라우팅 설정」에 등록된 아무 모델 이름",

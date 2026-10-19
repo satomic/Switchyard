@@ -625,9 +625,10 @@
       "close": "Hide example",
       "rowTitle": "Command-line usage for {{name}}",
       "byokTitle": "Use it in GitHub Copilot through BYOK",
-      "protocolHint": "one key, either protocol: the router converts between them",
+      "protocolHint": "one key, any protocol: the router converts between them",
       "protocol": {
-        "openai": "OpenAI-compatible",
+        "openai": "OpenAI Chat Completions",
+        "responses": "OpenAI Responses",
         "anthropic": "Anthropic-compatible"
       },
       "modelHint": "any model name registered under Routing configuration",

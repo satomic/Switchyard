@@ -610,9 +610,10 @@
       "close": "收起示例",
       "rowTitle": "{{name}} 的命令行用法",
       "byokTitle": "在 GitHub Copilot 中通过 BYOK 使用",
-      "protocolHint": "同一个密钥支持两种协议，路由器会自动转换",
+      "protocolHint": "同一个密钥支持三种协议，路由器会自动转换",
       "protocol": {
-        "openai": "OpenAI 兼容",
+        "openai": "OpenAI Chat Completions",
+        "responses": "OpenAI Responses",
         "anthropic": "Anthropic 兼容"
       },
       "modelHint": "任意在「路由配置」中登记的模型名",

@@ -56,11 +56,33 @@ func chunksFromCompletion(completion *omap.Map) chunkSource {
 		"model", completion.Value("model"),
 		"choices", []any{mapOf(
 			"index", json.Number("0"),
-			"delta", mapOf("role", "assistant", "content", message.Value("content")),
+			"delta", deltaFromMessage(message),
 			"finish_reason", finish,
 		)},
 		"usage", nilIfEmptyMap(completion.Map("usage")),
 	)}}
+}
+
+// deltaFromMessage turns a whole assistant message into one stream delta, tool calls included
+// (with the `index` a streamed tool call carries).
+func deltaFromMessage(message *omap.Map) *omap.Map {
+	delta := mapOf("role", "assistant", "content", message.Value("content"))
+	calls := message.Slice("tool_calls")
+	if len(calls) == 0 {
+		return delta
+	}
+	indexed := make([]any, 0, len(calls))
+	for i, item := range calls {
+		call, ok := item.(*omap.Map)
+		if !ok {
+			continue
+		}
+		copied := call.Clone()
+		copied.Set("index", json.Number(fmt.Sprintf("%d", i)))
+		indexed = append(indexed, copied)
+	}
+	delta.Set("tool_calls", indexed)
+	return delta
 }
 
 // openAIStreamSource relays an OpenAI-protocol SSE stream unchanged: the chunks already are the
@@ -251,8 +273,11 @@ func (a *App) streamResponse(w http.ResponseWriter, r *http.Request, ctx *callCo
 	flush()
 
 	acc := newAccumulator()
-	if ctx.ClientProtocol == "anthropic" {
+	switch ctx.ClientProtocol {
+	case "anthropic":
 		return a.streamAnthropic(w, r, ctx, chunks, acc, flush)
+	case "responses":
+		return a.streamResponses(w, r, ctx, chunks, acc, flush)
 	}
 	return a.streamOpenAI(w, r, ctx, chunks, acc, flush)
 }
@@ -260,6 +285,7 @@ func (a *App) streamResponse(w http.ResponseWriter, r *http.Request, ctx *callCo
 // streamOpenAI relays canonical chunks as an OpenAI SSE stream.
 func (a *App) streamOpenAI(w http.ResponseWriter, r *http.Request, ctx *callContext,
 	chunks chunkSource, acc *accumulator, flush func()) error {
+	restorer := wire.NewCustomCallRestorer(ctx.CustomTools)
 	for {
 		chunk, ok, err := chunks.Next()
 		if err != nil {
@@ -271,15 +297,18 @@ func (a *App) streamOpenAI(w http.ResponseWriter, r *http.Request, ctx *callCont
 		if !ok {
 			break
 		}
+		// The trace sees the chunk as the upstream sent it; the caller sees custom calls restored.
 		acc.feed(chunk)
-		encoded, err := marshalJSON(chunk)
-		if err != nil {
-			continue
-		}
-		if _, err := fmt.Fprintf(w, "data: %s\n\n", encoded); err != nil {
-			// The caller hung up. The turn is still recorded: it really did cost an upstream call.
-			a.finalizeTrace(ctx.Trace, ctx.Start, "error", nil, nil, nil, err.Error(), nil)
-			return nil
+		for _, out := range restorer.Feed(chunk) {
+			encoded, err := marshalJSON(out)
+			if err != nil {
+				continue
+			}
+			if _, err := fmt.Fprintf(w, "data: %s\n\n", encoded); err != nil {
+				// The caller hung up. The turn is still recorded: it really did cost an upstream call.
+				a.finalizeTrace(ctx.Trace, ctx.Start, "error", nil, nil, nil, err.Error(), nil)
+				return nil
+			}
 		}
 		flush()
 	}
@@ -312,6 +341,44 @@ func (a *App) streamAnthropic(w http.ResponseWriter, r *http.Request, ctx *callC
 		if err != nil {
 			a.finalizeTrace(ctx.Trace, ctx.Start, "error", nil, nil, nil, err.Error(), nil)
 			write([]string{encoder.Error(err.Error())})
+			return nil
+		}
+		if !ok {
+			break
+		}
+		acc.feed(chunk)
+		if !write(encoder.Feed(chunk)) {
+			a.finalizeTrace(ctx.Trace, ctx.Start, "error", nil, nil, nil, "the client closed the connection", nil)
+			return nil
+		}
+	}
+	write(encoder.Finish(acc.usage))
+	a.finalizeTrace(ctx.Trace, ctx.Start, "ok",
+		acc.content(), acc.usage, acc.finish, "", acc.toolCalls())
+	return nil
+}
+
+// streamResponses relays canonical chunks as a Responses API event stream.
+//
+// A mid-stream failure becomes `response.failed`, the protocol's own terminal event, for the same
+// reason the Anthropic stream sends its `error` event: the status line is already gone.
+func (a *App) streamResponses(w http.ResponseWriter, r *http.Request, ctx *callContext,
+	chunks chunkSource, acc *accumulator, flush func()) error {
+	encoder := wire.NewResponsesEncoder(ctx.Model, ctx.Responses)
+	write := func(frames []string) bool {
+		for _, frame := range frames {
+			if _, err := fmt.Fprint(w, frame); err != nil {
+				return false
+			}
+		}
+		flush()
+		return true
+	}
+	for {
+		chunk, ok, err := chunks.Next()
+		if err != nil {
+			a.finalizeTrace(ctx.Trace, ctx.Start, "error", nil, nil, nil, err.Error(), nil)
+			write(encoder.Error(err.Error()))
 			return nil
 		}
 		if !ok {

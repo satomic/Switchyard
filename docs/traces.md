@@ -70,7 +70,7 @@ aggregate. The in-memory index of the 500 most recent summaries remains only for
   editable), the input given to the decision model, its raw output, the rationale, the latency and
   the token consumption; for a sticky hit, a note about the binding
 - **client_protocol / backend.protocol**: which door the request arrived on (`openai` for
-  `/v1/chat/completions`, `anthropic` for `/v1/messages`) and which protocol the backend spoke. They
+  `/v1/chat/completions`, `responses` for `/v1/responses`, `anthropic` for `/v1/messages`) and which protocol the backend spoke. They
   are recorded **per turn** rather than once per interaction, because one chain can be answered by an
   Azure deployment on its first turn and a Claude endpoint on its second, and a turn that does not
   say which is which cannot explain itself. When the two differ, `wire.py` converted the call

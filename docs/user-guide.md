@@ -181,8 +181,8 @@ Saving reloads the configuration in place: the router rebuilds its client pool, 
 takes effect on the next request without a restart.
 
 **The interface type is a backend detail, not a client contract.** Callers never have to match it.
-The router accepts requests on both protocols and converts to whatever the chosen model's connection
-speaks, in all four combinations:
+The router accepts requests on all three protocols and converts to whatever the chosen model's connection
+speaks, in every combination:
 
 | Client sends | Backend connection | What the router does |
 |---|---|---|
@@ -190,6 +190,7 @@ speaks, in all four combinations:
 | `POST /v1/chat/completions` | `anthropic` | converts the request to Messages, converts the reply back to a chat completion |
 | `POST /v1/messages` | `anthropic` | passes through |
 | `POST /v1/messages` | `azure` / `openai` | converts the request to chat completions, converts the reply back to a Messages response |
+| `POST /v1/responses` | any | converts the request to chat completions (and on to Messages for `anthropic`), converts the reply back to a Responses object |
 
 Streaming is converted the same way, event by event, so a streaming client sees its own protocol's
 events regardless of which backend answered. Each trace turn records both sides as `client_protocol`
@@ -721,8 +722,9 @@ to `anthropic` picks up a Claude model added next week without anyone editing th
 ![A newly created key](images/23-user-key-created.png)
 
 The key is shown in full, with a **Copy** button and a ready-made configuration block for GitHub
-Copilot BYOK. The block comes in both protocols: pick **OpenAI-compatible** or **Anthropic-compatible**
-and the environment variables and the `curl` line change together, so you can paste the one your
+Copilot BYOK. The block comes in three protocols: pick **OpenAI Chat Completions**, **OpenAI
+Responses** (which also lists the Copilot CLI variables) or **Anthropic-compatible**, and the
+environment variables and the `curl` line change together, so you can paste the one your
 client actually wants. **Copy command** copies the whole snippet. Every call made with this key is
 attributed to your login, so treat it as your own credential: anything sent with it appears under your
 name in the traces and in the usage statistics.
@@ -737,7 +739,7 @@ a key has leaked.
 
 **Usage example** on any row reopens that configuration block later. The panel above appears once,
 straight after creation, so a key made last month had nowhere left to tell you the base URL, the
-header names or the `curl` line. The row has it, in both protocols, with your key filled in and the
+header names or the `curl` line. The row has it, in all three protocols, with your key filled in and the
 same **Copy command** button. Opening it also unmasks that key in the table, so the row and the
 snippet cannot disagree about what is on screen, and closing it masks the key again. Two cases show
 `YOUR_API_KEY` in place of the value and say which case it is: a key created before the router kept
@@ -764,6 +766,20 @@ the trace records which one it chose.
 sends no user identity of its own, which is exactly why attribution comes from the key's owner; it
 does send `x-interaction-id`, so its tool-call loop is routed once and recorded as one trace.
 
+**GitHub Copilot CLI (BYOK)**: point it at the router with environment variables. For GPT-5-series
+model ids, Copilot CLI wants the Responses API, which the router serves on `/v1/responses`:
+
+```bash
+export COPILOT_PROVIDER_BASE_URL=http://127.0.0.1:8000/v1
+export COPILOT_PROVIDER_API_KEY=mr_...
+export COPILOT_PROVIDER_WIRE_API=responses   # or leave unset for chat completions
+export COPILOT_PROVIDER_WIRE_MODEL=auto      # the router picks the model
+export COPILOT_PROVIDER_MODEL_ID=gpt-5.4     # what Copilot CLI tunes its agent for
+```
+
+The API keys page shows these lines with your key filled in, under **Usage example → OpenAI
+Responses**.
+
 **curl**:
 
 ```bash
@@ -772,6 +788,12 @@ curl http://127.0.0.1:8000/v1/chat/completions \
   -H "Authorization: Bearer mr_..." \
   -H "Content-Type: application/json" \
   -d '{"model":"gpt-4o","messages":[{"role":"user","content":"Refactor this module and explain the design"}]}'
+
+# OpenAI Responses API
+curl http://127.0.0.1:8000/v1/responses \
+  -H "Authorization: Bearer mr_..." \
+  -H "Content-Type: application/json" \
+  -d '{"model":"auto","input":"Refactor this module and explain the design"}'
 
 # Anthropic-compatible
 curl http://127.0.0.1:8000/v1/messages \

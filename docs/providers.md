@@ -53,7 +53,7 @@ ai_router:
 
 `azure` and `openai` differ only in how the client is constructed; both speak OpenAI chat
 completions. `anthropic` speaks the Messages API, which is a different request and response shape
-entirely. **Callers do not have to match it.** The router accepts requests on both protocols and
+entirely. **Callers do not have to match it.** The router accepts requests on all three protocols and
 converts to whatever the chosen model's provider speaks:
 
 | Client sends | Provider `api_type` | What the router does |
@@ -62,6 +62,8 @@ converts to whatever the chosen model's provider speaks:
 | `POST /v1/chat/completions` | `anthropic` | converts the request to Messages, converts the reply back |
 | `POST /v1/messages` | `anthropic` | passes through |
 | `POST /v1/messages` | `azure` / `openai` | converts the request to chat completions, converts the reply back |
+| `POST /v1/responses` | `azure` / `openai` | converts the request to chat completions, converts the reply back to a Responses object |
+| `POST /v1/responses` | `anthropic` | converts the request to chat completions, then to Messages, and back |
 
 Streaming is converted event by event, so a streaming client always sees its own protocol's events.
 Fields both protocols have survive intact: a system message becomes the Anthropic `system` parameter

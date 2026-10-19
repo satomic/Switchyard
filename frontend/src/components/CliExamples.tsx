@@ -4,6 +4,9 @@ import { Trans, useTranslation } from 'react-i18next'
 /** What to put where the key belongs when its value is not available on this page. */
 const PLACEHOLDER = 'YOUR_API_KEY'
 
+const MODES = ['openai', 'responses', 'anthropic'] as const
+type Mode = (typeof MODES)[number]
+
 /** Command-line usage for one key, in either protocol.
  *
  *  Shared by the panel shown straight after a key is created and by the key list, because those
@@ -11,9 +14,9 @@ const PLACEHOLDER = 'YOUR_API_KEY'
  *  back the next day, had nowhere to read the base URL, the header names or the curl line again.
  *  One component means the list cannot drift from what the create panel promised.
  *
- *  Both protocols are offered on the same key on purpose. `/v1/chat/completions` and
- *  `/v1/messages` both reach every model, whichever series it belongs to, and the router converts
- *  between the two wire formats -- so which one to show is the client's business, not the key's.
+ *  Every protocol is offered on the same key on purpose. `/v1/chat/completions`, `/v1/responses`
+ *  and `/v1/messages` all reach every model, whichever series it belongs to, and the router converts
+ *  between the wire formats -- so which one to show is the client's business, not the key's.
  */
 export default function CliExamples({
   keyValue,
@@ -37,7 +40,7 @@ export default function CliExamples({
   copyId: string
 }) {
   const { t } = useTranslation()
-  const [mode, setMode] = useState<'openai' | 'anthropic'>('openai')
+  const [mode, setMode] = useState<Mode>('openai')
 
   const origin = window.location.origin
   const secret = keyValue ?? PLACEHOLDER
@@ -48,11 +51,31 @@ export default function CliExamples({
   const command =
     mode === 'openai'
       ? `curl ${origin}/v1/chat/completions -H "Authorization: Bearer ${secret}" -H "Content-Type: application/json" -d '{"messages":[{"role":"user","content":"hello"}]}'`
-      : `curl ${origin}/v1/messages -H "x-api-key: ${secret}" -H "anthropic-version: 2023-06-01" -H "Content-Type: application/json" -d '{"model":"auto","max_tokens":64,"messages":[{"role":"user","content":"hello"}]}'`
+      : mode === 'responses'
+        ? `curl ${origin}/v1/responses -H "Authorization: Bearer ${secret}" -H "Content-Type: application/json" -d '{"model":"auto","input":"hello"}'`
+        : `curl ${origin}/v1/messages -H "x-api-key: ${secret}" -H "anthropic-version: 2023-06-01" -H "Content-Type: application/json" -d '{"model":"auto","max_tokens":64,"messages":[{"role":"user","content":"hello"}]}'`
 
+  // The Responses form carries the Copilot CLI settings as well: that client picks its wire format
+  // from COPILOT_PROVIDER_WIRE_API, and "responses" is what it wants for GPT-5-series models.
   const block =
-    mode === 'openai'
+    mode === 'responses'
       ? `OPENAI_BASE_URL : ${origin}/v1
+OPENAI_API_KEY  : ${secret}
+Model           : ${t('keys.cli.modelHint')}
+
+# GitHub Copilot CLI (BYOK)
+export COPILOT_PROVIDER_BASE_URL=${origin}/v1
+export COPILOT_PROVIDER_API_KEY=${secret}
+export COPILOT_PROVIDER_WIRE_API=responses
+export COPILOT_PROVIDER_WIRE_MODEL=auto
+
+# ${t('keys.cli.curlComment')}
+curl ${origin}/v1/responses \\
+  -H "Authorization: Bearer ${secret}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"auto","input":"hello"}'`
+      : mode === 'openai'
+        ? `OPENAI_BASE_URL : ${origin}/v1
 OPENAI_API_KEY  : ${secret}
 Model           : ${t('keys.cli.modelHint')}
 
@@ -61,7 +84,7 @@ curl ${origin}/v1/chat/completions \\
   -H "Authorization: Bearer ${secret}" \\
   -H "Content-Type: application/json" \\
   -d '{"messages":[{"role":"user","content":"hello"}]}'`
-      : `ANTHROPIC_BASE_URL   : ${origin}
+        : `ANTHROPIC_BASE_URL   : ${origin}
 ANTHROPIC_AUTH_TOKEN : ${secret}
 ANTHROPIC_MODEL      : ${t('keys.cli.modelHint')}
 
@@ -81,7 +104,7 @@ curl ${origin}/v1/messages \\
         <span className="field-hint">{t('keys.cli.protocolHint')}</span>
       </div>
       <div className="scope-kinds" style={{ marginBottom: 8 }}>
-        {(['openai', 'anthropic'] as const).map((m) => (
+        {MODES.map((m) => (
           <label className="check" key={m}>
             <input
               type="radio"

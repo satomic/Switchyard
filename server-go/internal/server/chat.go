@@ -128,9 +128,15 @@ type callContext struct {
 	Start          time.Time
 	ClientProtocol string
 	Cfg            *config.RouterConfig
+	// Responses is set when the caller spoke the Responses API: the response side needs to know
+	// which tools were declared as custom, and which request fields to echo back.
+	Responses *wire.ResponsesRequest
+	// CustomTools names the chat-completions custom tools that were declared upstream as
+	// functions, so calls to them go back to the caller as custom calls.
+	CustomTools map[string]bool
 }
 
-// -- The two protocol entry points --------------------------------------------
+// -- The three protocol entry points ------------------------------------------
 // A caller may speak either protocol and an upstream connection may speak either protocol, and
 // the two choices are independent: an Anthropic client can be answered by an Azure deployment
 // and an OpenAI client by a Claude endpoint. Rather than four pipelines, both entry points
@@ -150,10 +156,12 @@ func (a *App) chatCompletions(w http.ResponseWriter, r *http.Request) error {
 	if len(body.Slice("messages")) == 0 {
 		return errorf(http.StatusBadRequest, "messages is required")
 	}
+	custom := wire.BridgeChatCustomTools(body)
 	ctx, err := a.prepareCall(r, body, key, start, "openai")
 	if err != nil {
 		return err
 	}
+	ctx.CustomTools = custom
 	if ctx.Gated {
 		return a.serveGated(w, r, ctx)
 	}
@@ -185,6 +193,48 @@ func (a *App) anthropicMessages(w http.ResponseWriter, r *http.Request) error {
 	}
 	if ctx.Gated {
 		return a.serveGated(w, r, ctx)
+	}
+	return a.serve(w, r, ctx)
+}
+
+// responsesCreate is the OpenAI Responses API entry point (POST /v1/responses), so a client that
+// only speaks Responses -- Copilot CLI with COPILOT_PROVIDER_WIRE_API=responses, Codex, the OpenAI
+// SDKs' responses.create -- works unchanged. Converted to the canonical chat payload like the
+// Anthropic door; see internal/wire/responses.go for what does not cross.
+func (a *App) responsesCreate(w http.ResponseWriter, r *http.Request) error {
+	key, err := a.apiKey(r)
+	if err != nil {
+		return err
+	}
+	start := time.Now()
+	raw, err := readJSONObject(r)
+	if err != nil {
+		return err
+	}
+	converted, err := wire.ResponsesRequestToOpenAI(raw)
+	if err != nil {
+		return errorf(http.StatusBadRequest, "%s", err.Error())
+	}
+	ctx, err := a.prepareCall(r, converted.Payload, key, start, "responses")
+	if err != nil {
+		return err
+	}
+	ctx.Responses = converted
+	if len(converted.Dropped) > 0 {
+		items := make([]any, len(converted.Dropped))
+		for i, name := range converted.Dropped {
+			items[i] = name
+		}
+		ctx.Trace.Map("request").Set("dropped", items)
+	}
+	if ctx.Gated {
+		return a.serveGated(w, r, ctx)
+	}
+	// A Responses stream ends with the usage in response.completed, and an OpenAI-protocol
+	// upstream only streams usage when asked to. Asked here rather than for every caller, so the
+	// two older doors keep sending exactly what they always sent.
+	if ctx.Payload.Bool("stream", false) && ctx.Resolved.Provider.Protocol() != "anthropic" && ctx.Resolved.API != "responses" {
+		ctx.Payload.Set("stream_options", mapOf("include_usage", true))
 	}
 	return a.serve(w, r, ctx)
 }
@@ -704,10 +754,15 @@ func (a *App) finishAndRender(w http.ResponseWriter, completion *omap.Map, ctx *
 	a.finalizeTrace(ctx.Trace, ctx.Start, "ok",
 		message.Value("content"), completion.Map("usage"), choice.Value("finish_reason"),
 		"", message.Slice("tool_calls"))
-	if ctx.ClientProtocol == "anthropic" {
+	switch ctx.ClientProtocol {
+	case "anthropic":
 		writeJSON(w, http.StatusOK, wire.OpenAIResponseToAnthropic(completion, ctx.Model), ctx.Headers)
 		return nil
+	case "responses":
+		writeJSON(w, http.StatusOK, wire.OpenAIResponseToResponses(completion, ctx.Model, ctx.Responses), ctx.Headers)
+		return nil
 	}
+	wire.RestoreChatCustomCalls(completion, ctx.CustomTools)
 	writeJSON(w, http.StatusOK, completion, ctx.Headers)
 	return nil
 }
@@ -744,6 +799,16 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request, ctx *callContext) er
 	var chunks chunkSource
 	var completion *omap.Map
 
+	// adjusted records, in the trace, a change the router made to the request before it went out.
+	// Appended rather than overwritten: one request can need both the effort and the limit fixed.
+	adjusted := func(s string) {
+		backend := ctx.Trace.Map("backend")
+		if previous := backend.Str("adjusted"); previous != "" {
+			s = previous + "; " + s
+		}
+		backend.Set("adjusted", s)
+	}
+
 	switch {
 	case resolved.Provider.Protocol() == "anthropic":
 		client, err := a.Pool.Get(resolved.Provider, "chat")
@@ -770,13 +835,17 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request, ctx *callContext) er
 			backend.Set("dropped_params", items)
 		}
 		if streaming {
-			source, err := a.openAnthropicStream(r.Context(), client, body, ctx.Model)
+			source, err := withOutputCapRetry(resolved.Provider.Name, resolved.UpstreamModel, body, adjusted,
+				func(b *omap.Map) (chunkSource, error) {
+					return a.openAnthropicStream(r.Context(), client, b, ctx.Model)
+				})
 			if err != nil {
 				return fail(err)
 			}
 			chunks = source
 		} else {
-			data, err := client.Create(r.Context(), resolved.UpstreamModel, body)
+			data, err := withOutputCapRetry(resolved.Provider.Name, resolved.UpstreamModel, body, adjusted,
+				func(b *omap.Map) (*omap.Map, error) { return client.Create(r.Context(), resolved.UpstreamModel, b) })
 			if err != nil {
 				return fail(err)
 			}
@@ -787,7 +856,10 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request, ctx *callContext) er
 		if err != nil {
 			return fail(err)
 		}
-		completion, err = completeViaResponsesAPI(r.Context(), client, resolved.UpstreamModel, payload)
+		completion, err = withOutputCapRetry(resolved.Provider.Name, resolved.UpstreamModel, payload.Clone(), adjusted,
+			func(b *omap.Map) (*omap.Map, error) {
+				return completeViaResponsesAPI(r.Context(), client, resolved.UpstreamModel, b)
+			})
 		if err != nil {
 			return fail(err)
 		}
@@ -802,24 +874,36 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request, ctx *callContext) er
 		body := payload.Clone()
 		body.Set("model", resolved.UpstreamModel)
 		note := func(s string) {
-			backend := ctx.Trace.Map("backend")
-			backend.Set("adjusted", s)
-			if sent := backend.Map("sent_params"); sent != nil {
+			adjusted(s)
+			if sent := ctx.Trace.Map("backend").Map("sent_params"); sent != nil {
 				sent.Set("reasoning_effort", body.Value("reasoning_effort"))
+				for _, field := range outputCapFields {
+					if body.Has(field) {
+						sent.Set(field, body.Value(field))
+					}
+				}
 			}
 		}
+		// Two independent refusals a routed request can meet, each fixed by one retry: an output
+		// limit sized for another model, and tools on a reasoning model at its default effort.
 		if streaming {
-			source, err := withEffortRetry(resolved.Reasoning, resolved.Provider.Name, resolved.UpstreamModel, body, note,
+			source, err := withOutputCapRetry(resolved.Provider.Name, resolved.UpstreamModel, body, note,
 				func(b *omap.Map) (chunkSource, error) {
-					return openOpenAIStream(r.Context(), client, resolved.UpstreamModel, b)
+					return withEffortRetry(resolved.Reasoning, resolved.Provider.Name, resolved.UpstreamModel, b, note,
+						func(b *omap.Map) (chunkSource, error) {
+							return openOpenAIStream(r.Context(), client, resolved.UpstreamModel, b)
+						})
 				})
 			if err != nil {
 				return fail(err)
 			}
 			chunks = source
 		} else {
-			data, err := withEffortRetry(resolved.Reasoning, resolved.Provider.Name, resolved.UpstreamModel, body, note,
-				func(b *omap.Map) (*omap.Map, error) { return client.Create(r.Context(), resolved.UpstreamModel, b) })
+			data, err := withOutputCapRetry(resolved.Provider.Name, resolved.UpstreamModel, body, note,
+				func(b *omap.Map) (*omap.Map, error) {
+					return withEffortRetry(resolved.Reasoning, resolved.Provider.Name, resolved.UpstreamModel, b, note,
+						func(b *omap.Map) (*omap.Map, error) { return client.Create(r.Context(), resolved.UpstreamModel, b) })
+				})
 			if err != nil {
 				return fail(err)
 			}
@@ -835,6 +919,10 @@ func (a *App) serve(w http.ResponseWriter, r *http.Request, ctx *callContext) er
 
 // completeViaResponsesAPI adapts a chat request to the Responses API and converts the result
 // back to the chat.completion shape.
+//
+// Tools travel both ways: chat tools become the Responses API's flat function tools, and the
+// function_call items that come back become chat tool_calls. Without that, an agent routed to a
+// Responses-only model got a plain-text answer to a request that needed a tool, and stopped.
 func completeViaResponsesAPI(ctx context.Context, client *upstream.Client, model string, payload *omap.Map) (*omap.Map, error) {
 	body := mapOf("model", model, "input", responsesInput(payload.Slice("messages")))
 	maxOut := payload.Value("max_completion_tokens")
@@ -843,6 +931,31 @@ func completeViaResponsesAPI(ctx context.Context, client *upstream.Client, model
 	}
 	if maxOut != nil {
 		body.Set("max_output_tokens", maxOut)
+	}
+	if tools := responsesTools(payload.Slice("tools")); len(tools) > 0 {
+		body.Set("tools", tools)
+		switch choice := payload.Value("tool_choice").(type) {
+		case string:
+			body.Set("tool_choice", choice)
+		case *omap.Map:
+			if fn := choice.Map("function"); fn != nil && fn.Str("name") != "" {
+				body.Set("tool_choice", mapOf("type", "function", "name", fn.Str("name")))
+			}
+		}
+	}
+	if format := payload.Map("response_format"); format != nil {
+		switch format.Str("type") {
+		case "json_schema":
+			if schema := format.Map("json_schema"); schema != nil {
+				out := mapOf("type", "json_schema")
+				for _, field := range schema.Keys() {
+					out.Set(field, schema.Value(field))
+				}
+				body.Set("text", mapOf("format", out))
+			}
+		case "json_object":
+			body.Set("text", mapOf("format", mapOf("type", "json_object")))
+		}
 	}
 	resp, err := client.Create(ctx, model, body)
 	if err != nil {
@@ -854,6 +967,29 @@ func completeViaResponsesAPI(ctx context.Context, client *upstream.Client, model
 	if created == nil {
 		created = json.Number(fmt.Sprintf("%d", time.Now().Unix()))
 	}
+	message := mapOf("role", "assistant", "content", outputText(resp))
+	finish := "stop"
+	calls := []any{}
+	for _, item := range resp.Slice("output") {
+		entry, ok := item.(*omap.Map)
+		if !ok || entry.Str("type") != "function_call" {
+			continue
+		}
+		calls = append(calls, mapOf(
+			"id", entry.Value("call_id"),
+			"type", "function",
+			"function", mapOf("name", entry.Value("name"), "arguments", entry.Str("arguments")),
+		))
+	}
+	if len(calls) > 0 {
+		message.Set("tool_calls", calls)
+		if message.Str("content") == "" {
+			message.Set("content", nil)
+		}
+		finish = "tool_calls"
+	} else if resp.Str("status") == "incomplete" {
+		finish = "length"
+	}
 	return mapOf(
 		"id", resp.Value("id"),
 		"object", "chat.completion",
@@ -861,11 +997,55 @@ func completeViaResponsesAPI(ctx context.Context, client *upstream.Client, model
 		"model", model,
 		"choices", []any{mapOf(
 			"index", json.Number("0"),
-			"message", mapOf("role", "assistant", "content", outputText(resp)),
-			"finish_reason", "stop",
+			"message", message,
+			"finish_reason", finish,
 		)},
-		"usage", nilIfEmptyMap(resp.Map("usage")),
+		"usage", chatUsage(resp.Map("usage")),
 	), nil
+}
+
+// responsesTools converts chat tools ({type, function: {...}}) to the Responses API's flat form.
+func responsesTools(tools []any) []any {
+	out := []any{}
+	for _, item := range tools {
+		tool, ok := item.(*omap.Map)
+		if !ok || tool.Str("type") != "function" {
+			continue
+		}
+		fn := tool.Map("function")
+		if fn == nil {
+			continue
+		}
+		flat := mapOf("type", "function", "name", fn.Value("name"))
+		for _, field := range []string{"description", "parameters", "strict"} {
+			if fn.Has(field) {
+				flat.Set(field, fn.Value(field))
+			}
+		}
+		out = append(out, flat)
+	}
+	return out
+}
+
+// chatUsage converts Responses usage ({input_tokens, output_tokens}) to the chat shape the trace
+// and the usage rollup read. Already-chat usage passes through.
+func chatUsage(usage *omap.Map) any {
+	if usage == nil || usage.Len() == 0 {
+		return nil
+	}
+	if usage.Has("prompt_tokens") {
+		return usage
+	}
+	input := usage.Value("input_tokens")
+	output := usage.Value("output_tokens")
+	out := mapOf("prompt_tokens", input, "completion_tokens", output, "total_tokens", usage.Value("total_tokens"))
+	if details := usage.Map("output_tokens_details"); details != nil {
+		out.Set("completion_tokens_details", details)
+	}
+	if details := usage.Map("input_tokens_details"); details != nil {
+		out.Set("prompt_tokens_details", details)
+	}
+	return out
 }
 
 // outputText flattens the Responses API's output array into the plain text a chat completion
@@ -919,7 +1099,7 @@ func responsesInput(messages []any) []any {
 		content := msg.Value("content")
 		// A tool-call turn carries no text, and an empty message item is not worth sending.
 		if !isBlank(content) || len(calls) == 0 {
-			items = append(items, mapOf("role", msg.Value("role"), "content", orEmptyString(content)))
+			items = append(items, mapOf("role", msg.Value("role"), "content", responsesContent(msg.Str("role"), content)))
 		}
 		for _, callItem := range calls {
 			call, ok := callItem.(*omap.Map)
@@ -943,6 +1123,43 @@ func responsesInput(messages []any) []any {
 		}
 	}
 	return items
+}
+
+// responsesContent converts chat content parts to Responses parts. A string stays a string; the
+// Responses API rejects chat's "text" / "image_url" part types outright.
+func responsesContent(role string, content any) any {
+	parts, ok := content.([]any)
+	if !ok {
+		return orEmptyString(content)
+	}
+	textType := "input_text"
+	if role == "assistant" {
+		textType = "output_text"
+	}
+	out := []any{}
+	for _, item := range parts {
+		part, ok := item.(*omap.Map)
+		if !ok {
+			continue
+		}
+		switch part.Str("type") {
+		case "text":
+			out = append(out, mapOf("type", textType, "text", part.Str("text")))
+		case "image_url":
+			image := part.Map("image_url")
+			if image == nil {
+				continue
+			}
+			converted := mapOf("type", "input_image", "image_url", image.Value("url"))
+			if detail := image.Str("detail"); detail != "" {
+				converted.Set("detail", detail)
+			}
+			out = append(out, converted)
+		default:
+			out = append(out, part)
+		}
+	}
+	return out
 }
 
 func isBlank(v any) bool {

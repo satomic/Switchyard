@@ -4,6 +4,7 @@
 |---|---|
 | `POST /v1/chat/completions` | OpenAI-compatible, streaming supported. **Requires an API key**; optional `x-interaction-id` (one decision and one trace per user interaction) and `x-session-id` (session stickiness); response headers include `x-trace-id` (the *interaction's* trace) / `x-routed-model` / `x-router-reason` / `x-router-decision-ms`, plus `x-router-interaction-id` when the request carried one |
 | `POST /v1/messages` | Anthropic Messages-compatible, streaming supported, so a client configured with `ANTHROPIC_BASE_URL` pointing here works unchanged. **Requires an API key**, accepted from either `x-api-key` or `Authorization: Bearer` because the two ecosystems send different headers. Same routing, same stickiness headers and same response headers as `/v1/chat/completions`; the body's `model` is ignored, since the router picks the model |
+| `POST /v1/responses` | OpenAI Responses-compatible, streaming supported, so a client that speaks only the Responses API (Copilot CLI with `COPILOT_PROVIDER_WIRE_API=responses`, Codex, `responses.create` in the OpenAI SDKs) works unchanged. **Requires an API key**. Same routing, stickiness and response headers as `/v1/chat/completions`. Stateless: `previous_response_id`, `conversation` and `item_reference` are refused with a `400`, so send the whole conversation in `input` (`store: false`). See [The Responses API](#the-responses-api) |
 | `GET /v1/models` | the available backend models (requires an API key), **narrowed to what the key's owner may use** under the [model policy](model-policy.md) and then by that key's own [scope](#api-key-scopes) |
 | `GET /v1/models/available` | the signed-in user's effective model list and why it looks that way: the resolved names, the catalog descriptions, the default model, a `reason`, and the grants that applied. Resolved through the same code the API path uses, so it cannot disagree with a real request. Available to **every** signed-in user, and returns no trace of the teams or organizations they are not in |
 | `GET /v1/auth/status` | what the frontend uses to choose between the setup page, the sign-in page and the console |
@@ -46,20 +47,63 @@ Which identity each endpoint requires is tabulated in
 ## The AI-credit gate
 
 When the [BYOK gate](ai-credits.md) is on and the caller's enterprise pool still has credits, both
-`POST /v1/chat/completions` and `POST /v1/messages` answer **without routing**: a `200` in the
+`POST /v1/chat/completions`, `POST /v1/responses` and `POST /v1/messages` answer **without routing**: a `200` in the
 caller's protocol and streaming mode whose single assistant message is the configured note, zero
 tokens in `usage`, and `x-routed-model: ai-credits-gate` / `x-router-reason: ai-credits-gate` in the
 response headers. A trace is still written under that name.
 
-## Both protocols reach every model
+## Every protocol reaches every model
 
-`/v1/chat/completions` and `/v1/messages` are two front doors onto the same router. Which one a
-client uses has no bearing on which models it can reach: the router converts between the OpenAI
-chat-completions shape and the Anthropic Messages shape at both edges, so an OpenAI-style client can
+`/v1/chat/completions`, `/v1/responses` and `/v1/messages` are three front doors onto the same
+router. Which one a client uses has no bearing on which models it can reach: the router converts
+between the OpenAI chat-completions shape, the OpenAI Responses shape and the Anthropic Messages
+shape at the edges, so an OpenAI-style client can
 be answered by a Claude endpoint and an Anthropic-style client by an Azure deployment, streaming
 included. Each trace turn records `client_protocol` (the door the request came in) and `protocol`
 (what the backend spoke), so a conversion is visible after the fact. Details and the exact field
 mapping: [Backend connections](providers.md).
+
+## The Responses API
+
+`POST /v1/responses` is converted to a chat-completions request on the way in and the answer is
+rendered back as a `response` object, or, with `stream: true`, as Responses events
+(`response.created`, `response.output_text.delta`, `response.function_call_arguments.delta`,
+`response.completed`, ...). Conformance is tested with the official OpenAI Python SDK, which parses
+every object and event strictly, and with GitHub Copilot CLI.
+
+| Responses request | Becomes |
+|---|---|
+| `instructions` | a system message |
+| `input` as a string | one user message |
+| `input` message items (`user`, `assistant`, `system`, `developer`) | messages; `developer` becomes `system` |
+| `function_call` / `function_call_output` items | an assistant `tool_calls` turn / a `tool` message |
+| `tools` of `type: "function"` | chat function tools |
+| `tools` of `type: "custom"` (free-form, e.g. `apply_patch`) | a function with one string argument `input`; the call comes back as a `custom_tool_call` |
+| `max_output_tokens`, `temperature`, `top_p`, `tool_choice`, `text.format` | their chat equivalents |
+
+Not forwarded, and listed under `request.dropped` in the trace:
+
+* **Reasoning items.** Their encrypted content is only meaningful to the model that produced it, and
+  the next turn may be routed to another model.
+* **Hosted tools** (`web_search`, `file_search`, `code_interpreter`, ...). They run inside OpenAI's
+  own service, which a routed backend is not.
+
+Refused with a `400`, because the router keeps no response store and the next turn may go
+elsewhere: `previous_response_id`, `conversation`, `item_reference`. Clients that run with
+`store: false` (Copilot CLI and Codex do) already send the whole conversation every turn.
+
+The same custom-tool bridge applies on `/v1/chat/completions`: a `{"type": "custom"}` tool, which
+Copilot CLI sends in GPT-5 mode, is declared to the backend as a function and the call is returned as
+a `custom` tool call. Without it, Azure refuses the request when the router picks a model that
+doesn't know the type.
+
+### When the client's output limit is too large for the routed model
+
+A client sizes its output limit for the model it thinks it's using. Copilot CLI configured for
+`gpt-5.4` asks for 128000 output tokens; if the router picks `gpt-4.1-mini`, Azure refuses the
+request ("supports at most 32768 completion tokens"). The router retries once with the limit the
+backend named, remembers that limit for the model, and clamps later requests before they're sent.
+The trace notes it under `backend.adjusted`. This applies to every door.
 
 ## API key scopes
 

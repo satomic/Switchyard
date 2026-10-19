@@ -610,9 +610,10 @@
       "close": "使用例を閉じる",
       "rowTitle": "{{name}} のコマンドライン利用例",
       "byokTitle": "GitHub Copilot で BYOK として使う",
-      "protocolHint": "同じキーで両方のプロトコルが使えます。変換はルーターが行います",
+      "protocolHint": "同じキーで 3 つのプロトコルすべてが使えます。変換はルーターが行います",
       "protocol": {
-        "openai": "OpenAI 互換",
+        "openai": "OpenAI Chat Completions",
+        "responses": "OpenAI Responses",
         "anthropic": "Anthropic 互換"
       },
       "modelHint": "「ルーティング設定」に登録されている任意のモデル名",

@@ -70,10 +70,11 @@ from `127.0.0.1`, which is why a container uses the local administrator instead.
 
 - **Routes by rules or by an AI decision model**, then adapts parameters per model (reasoning models,
   the Responses API) before calling the backend.
-- **Speaks both protocols on the way in and on the way out.** `/v1/chat/completions` and
-  `/v1/messages` are two doors onto the same router, and a connection can be Azure OpenAI,
-  OpenAI-compatible or Anthropic-compatible. The four combinations all work, streaming included, so
-  an Anthropic-style client can be answered by an Azure deployment and the reverse.
+- **Speaks three protocols on the way in and two on the way out.** `/v1/chat/completions`,
+  `/v1/responses` (OpenAI Responses API) and `/v1/messages` are three doors onto the same router, and
+  a connection can be Azure OpenAI, OpenAI-compatible or Anthropic-compatible. Every combination
+  works, streaming and tool calls included, so Copilot CLI on the Responses wire can be answered by
+  an Azure chat deployment, and an Anthropic-style client by either.
 - **Scopes each API key independently.** One key can be limited to a set of models, or to every model
   of chosen interface types, always as an intersection with what its owner is allowed, and the scope
   can be narrowed later without reissuing the key.

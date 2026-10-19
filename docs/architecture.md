@@ -32,7 +32,7 @@ flowchart LR
 
     subgraph process["Model Router process (FastAPI, app/)"]
         spa["React console served from /<br/>frontend/dist"]
-        api["Dual-protocol API<br/>/v1/chat/completions, /v1/messages, /v1/models"]
+        api["Multi-protocol API<br/>/v1/chat/completions, /v1/responses, /v1/messages, /v1/models"]
         conv["wire.py<br/>OpenAI to Messages and back,<br/>streaming included"]
         mgmt["Management API<br/>/v1/config, /v1/keys, /v1/traces, /v1/usage"]
 

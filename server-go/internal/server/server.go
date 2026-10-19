@@ -1,8 +1,9 @@
-// Package server wires the HTTP surface: the two protocol entry points, the configuration API,
+// Package server wires the HTTP surface: the three protocol entry points, the configuration API,
 // and the console.
 //
 // Authentication model:
-//   - /v1/chat/completions, /v1/messages -> API key required (Authorization: Bearer mr_...)
+//   - /v1/chat/completions, /v1/messages, /v1/responses
+//     -> API key required (Authorization: Bearer mr_...)
 //   - /v1/config, /v1/directory          -> administrators only (a GitHub, local administrator or
 //     built-in user session)
 //   - /v1/keys, /v1/usage, /v1/traces    -> signed-in users; non-admins see only their own data
@@ -221,9 +222,10 @@ func wrap(h handler) http.HandlerFunc {
 func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
 
-	// The two protocol entry points.
+	// The three protocol entry points.
 	mux.HandleFunc("POST /v1/chat/completions", wrap(a.chatCompletions))
 	mux.HandleFunc("POST /v1/messages", wrap(a.anthropicMessages))
+	mux.HandleFunc("POST /v1/responses", wrap(a.responsesCreate))
 	mux.HandleFunc("GET /v1/models", wrap(a.listModels))
 
 	// Authentication.

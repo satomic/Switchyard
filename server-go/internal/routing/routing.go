@@ -21,33 +21,63 @@ import (
 // block of context.
 var userRequestRE = regexp.MustCompile(`(?s)<userRequest>\s*(.*?)\s*</userRequest>`)
 
+// A user-role message that is only a client's own reminder, not something the person typed.
+// Copilot CLI in GPT-5 mode appends one after the real request on every turn (a fixed note about
+// deferred tools). Taken as "the latest user message" it made every task look identical: the
+// decision model routed the reminder instead of the request, and the derived interaction id merged
+// unrelated tasks into one trace stuck to the first decision.
+var reminderRE = regexp.MustCompile(`(?s)<system[_-]reminder>.*?</system[_-]reminder>`)
+
+func isClientReminder(text string) bool {
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return false
+	}
+	if strings.TrimSpace(reminderRE.ReplaceAllString(trimmed, "")) == "" {
+		return true
+	}
+	// An unclosed reminder that opens the message is still the client's, not the person's.
+	return (strings.HasPrefix(trimmed, "<system_reminder>") || strings.HasPrefix(trimmed, "<system-reminder>")) &&
+		!strings.Contains(trimmed, "</system")
+}
+
+func messageText(msg *omap.Map) string {
+	content := msg.Value("content")
+	if parts, ok := content.([]any); ok { // multimodal content parts
+		pieces := []string{}
+		for _, part := range parts {
+			if block, ok := part.(*omap.Map); ok {
+				pieces = append(pieces, block.Str("text"))
+			}
+		}
+		return strings.Join(pieces, " ")
+	}
+	return omap.AsString(content)
+}
+
 // ExtractUserPrompt takes the latest user message as the routing input; when it contains a
-// <userRequest> tag, only the real question is kept.
+// <userRequest> tag, only the real question is kept. Messages that are nothing but a client
+// reminder are skipped, unless there is nothing else.
 func ExtractUserPrompt(messages []any) string {
+	fallback := ""
 	for i := len(messages) - 1; i >= 0; i-- {
 		msg, ok := messages[i].(*omap.Map)
 		if !ok || msg.Str("role") != "user" {
 			continue
 		}
-		content := msg.Value("content")
-		var text string
-		if parts, ok := content.([]any); ok { // multimodal content parts
-			pieces := []string{}
-			for _, part := range parts {
-				if block, ok := part.(*omap.Map); ok {
-					pieces = append(pieces, block.Str("text"))
-				}
+		text := messageText(msg)
+		if isClientReminder(text) {
+			if fallback == "" {
+				fallback = text
 			}
-			text = strings.Join(pieces, " ")
-		} else {
-			text = omap.AsString(content)
+			continue
 		}
 		if matches := userRequestRE.FindAllStringSubmatch(text, -1); len(matches) > 0 {
 			return matches[len(matches)-1][1]
 		}
 		return text
 	}
-	return ""
+	return fallback
 }
 
 // TruncateForDecision keeps half of the head and half of the tail of an over-long prompt, so

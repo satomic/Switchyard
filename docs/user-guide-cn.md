@@ -178,8 +178,8 @@ Messages 协议的 API，并把全部状态放在一个 `data/` 目录里：没�
 
 保存会就地重载配置：路由器重建它的客户端池，所以改对的密钥在下一个请求就生效，不需要重启。
 
-**接口类型是后端的细节，不是对客户端的约定。** 调用方完全不需要与它保持一致。路由器在两种协议上都接收
-请求，并转换成所选模型的连接实际使用的那一种，四种组合都支持：
+**接口类型是后端的细节，不是对客户端的约定。** 调用方完全不需要与它保持一致。路由器在三种协议上都接收
+请求，并转换成所选模型的连接实际使用的那一种，所有组合都支持：
 
 | 客户端发出 | 后端连接 | 路由器的处理 |
 |---|---|---|
@@ -187,6 +187,7 @@ Messages 协议的 API，并把全部状态放在一个 `data/` 目录里：没�
 | `POST /v1/chat/completions` | `anthropic` | 把请求转换为 Messages，再把回复转换回聊天补全 |
 | `POST /v1/messages` | `anthropic` | 直接透传 |
 | `POST /v1/messages` | `azure` / `openai` | 把请求转换为聊天补全，再把回复转换回 Messages 响应 |
+| `POST /v1/responses` | 任意 | 把请求转换为聊天补全（`anthropic` 连接再转换为 Messages），再把回复转换回 Responses 对象 |
 
 流式响应也是逐个事件同样转换的，所以流式客户端看到的始终是它自己协议的事件，不管背后是哪个后端在回答。
 每一轮调用链记录都会同时记下 `client_protocol` 和 `protocol` 两侧，事后就靠它们判断有没有发生转换。
@@ -630,9 +631,9 @@ GitHub 会让你授权一次这个应用；之后你会落在自己的 Usage 页
 
 ![刚刚创建的密钥](images/23-user-key-created.png)
 
-密钥会完整显示一次，带一个 **Copy** 按钮和一段可直接用于 GitHub Copilot BYOK 的配置。这段配置提供两
-种协议：切换 **OpenAI-compatible** 或 **Anthropic-compatible**，环境变量和 `curl` 命令行会一起变，你可
-以直接粘贴客户端真正需要的那一种。**Copy command** 复制整段命令。用这个密钥发出的每一次调用都归属到你
+密钥会完整显示一次，带一个 **Copy** 按钮和一段可直接用于 GitHub Copilot BYOK 的配置。这段配置提供三
+种协议：切换 **OpenAI Chat Completions**、**OpenAI Responses**（同时列出 Copilot CLI 的环境变量）或
+**Anthropic-compatible**，环境变量和 `curl` 命令行会一起变，你可以直接粘贴客户端真正需要的那一种。**Copy command** 复制整段命令。用这个密钥发出的每一次调用都归属到你
 的登录名，所以请把它当作你自己的凭据：用它发出的任何内容都会以你的名字出现在调用链记录和用量统计里。
 
 **My keys** 表格列出每个密钥的作用域、创建时间、最近使用时间和调用次数，并且可以查看、复制、停用或删
@@ -643,7 +644,7 @@ GitHub 会让你授权一次这个应用；之后你会落在自己的 Usage 页
 
 每一行上的 **Usage example**（使用示例）可以把上面那段配置随时重新打开。那个面板只在创建之后出现一
 次，所以上个月创建的密钥后来就没有地方再告诉你 base URL、请求头的名字和 `curl` 命令行了；这一行里有，
-两种协议都有，密钥已经填好，**Copy command** 按钮也还在。打开它同时会把表格里这一行的密钥解除掩码，
+三种协议都有，密钥已经填好，**Copy command** 按钮也还在。打开它同时会把表格里这一行的密钥解除掩码，
 免得表格和示例对同一个密钥说着两套话；收起时重新掩码。有两种情况示例里放的是 `YOUR_API_KEY` 而不是真
 正的值，并且会说明是哪一种：一种是在路由器开始保存可读的密钥值之前创建的密钥，这时填入你自己保存下来
 的值，或者重新创建一个；另一种是管理员在 **All users** 视图下看到的别人的密钥，它的值只会展示给拥有者。
@@ -658,13 +659,26 @@ GitHub 会让你授权一次这个应用；之后你会落在自己的 Usage 页
 | API Key | 你的 `mr_…` 密钥，放在 `Authorization: Bearer` 里 | 你的 `mr_…` 密钥，放在 `x-api-key` 里 |
 | Model | Available models 页面里的任意一个模型名 | 同上，或者写 `auto` |
 
-同一个密钥两种协议都能用。你使用哪种协议，和你能调到哪些模型没有关系：路由器会做转换，所以 Anthropic 风
+同一个密钥三种协议都能用（Chat Completions、Responses、Anthropic Messages）。你使用哪种协议，和你能调到哪些模型没有关系：路由器会做转换，所以 Anthropic 风
 格的客户端可以由 Azure 部署来回答，反过来也一样。`model` 字段是一个请求而不是一条指令，因为选哪个模型由
 路由策略决定，并且调用链记录会写清楚它选的是哪一个。
 
 **GitHub Copilot（BYOK）**：用上面三个值添加一个兼容 OpenAI 的 provider。Copilot 自己不发送任何用户
 身份，这正是为什么归属要取自密钥的所有者；它确实会发送 `x-interaction-id`，所以它的工具调用循环只被
 路由一次，并被记录成一条调用链。
+
+**GitHub Copilot CLI（BYOK）**：用环境变量把它指向路由器。模型 ID 是 GPT-5 系列时，Copilot CLI 需要
+Responses API，路由器在 `/v1/responses` 上提供：
+
+```bash
+export COPILOT_PROVIDER_BASE_URL=http://127.0.0.1:8000/v1
+export COPILOT_PROVIDER_API_KEY=mr_...
+export COPILOT_PROVIDER_WIRE_API=responses   # 不设置则使用 Chat Completions
+export COPILOT_PROVIDER_WIRE_MODEL=auto      # 由路由器选模型
+export COPILOT_PROVIDER_MODEL_ID=gpt-5.4     # Copilot CLI 按这个模型调整自己的 agent
+```
+
+API 密钥页面的**使用示例 → OpenAI Responses** 里会显示填好你密钥的这几行。
 
 **curl**：
 
@@ -674,6 +688,12 @@ curl http://127.0.0.1:8000/v1/chat/completions \
   -H "Authorization: Bearer mr_..." \
   -H "Content-Type: application/json" \
   -d '{"model":"gpt-4o","messages":[{"role":"user","content":"Refactor this module and explain the design"}]}'
+
+# OpenAI Responses API
+curl http://127.0.0.1:8000/v1/responses \
+  -H "Authorization: Bearer mr_..." \
+  -H "Content-Type: application/json" \
+  -d '{"model":"auto","input":"Refactor this module and explain the design"}'
 
 # 兼容 Anthropic
 curl http://127.0.0.1:8000/v1/messages \
