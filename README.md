@@ -83,8 +83,12 @@ from `127.0.0.1`, which is why a container uses the local administrator instead.
   re-routing the same prompt N times.
 - **Attributes every call to a real user.** Copilot BYOK passes no identity, so `user_id` comes from
   the owner of the API key and cannot be forged by the client.
-- **Gates who may create a key** on GitHub Enterprise / organization / Enterprise Team membership,
-  answered from a local cache where it can be trusted.
+- **Works with or without GitHub.** Built-in users sign in with a user name and password, and user
+  groups (of built-in users and GitHub accounts alike) are bound by every policy like a GitHub team.
+  GitHub OAuth, built-in users and the local administrator work side by side. See
+  [Built-in users and user groups](docs/users-and-groups.md).
+- **Gates who may create a key** on user group, GitHub Enterprise / organization / Enterprise Team
+  membership, answered from a local cache where it can be trusted.
 - **Curates the model list per user, team and organization.** Named model groups are granted per
   scope and resolve as a union, and every user has a page showing exactly what they may call and
   which grant made it available.
@@ -107,6 +111,7 @@ from `127.0.0.1`, which is why a container uses the local administrator instead.
 | [Docker deployment](docs/docker.md) | **the recommended path**: the image, port mapping, the data volume, upgrades, reverse proxies |
 | [Getting started](docs/getting-started.md) | running from source, frontend development, console languages |
 | [Sign-in and authentication](docs/authentication.md) | the GitHub OAuth App, API keys, the local super administrator, the permission matrix |
+| [Built-in users and user groups](docs/users-and-groups.md) | accounts without GitHub, user groups, and how every policy binds them |
 | [Backend connections](docs/providers.md) | providers, per-model bindings, non-Foundry OpenAI-compatible and Anthropic-compatible endpoints, protocol conversion |
 | [Router logic](docs/router-logic.md) | the request flow, interaction stickiness, rule and AI routing, the editable decision prompt |
 | [Configuration](docs/configuration.md) | `config.yaml`, the console's configuration pages, hot reload |

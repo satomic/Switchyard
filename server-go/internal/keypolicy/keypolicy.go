@@ -16,18 +16,21 @@
 //	        allow_all_orgs: false     # true = membership in any org of the enterprise suffices
 //	        organizations: [nekoaru]  # allowed orgs (inert while the master switch is off)
 //	        teams: [14501973]         # allowed enterprise teams (numeric ids)
+//	    user_groups: [research]       # built-in user groups (internal/directory)
 //
 // Decision order, and why it is this order:
 //  1. Admins (auth.admin_logins) pass immediately -- otherwise a misconfigured policy locks the
 //     admin out too, and since admins can edit the policy anyway, blocking them buys no security.
 //  2. Policy disabled -> allow (preserves the previous default so upgrades do not break existing
 //     deployments).
-//  3. Policy enabled but no token -> **deny**, with an explanation. Enabled but unable to query
+//  3. Membership of an allowed built-in user group -> allow. Local, so it needs no token and
+//     costs no GitHub call, which is what lets a deployment without GitHub use this policy.
+//  4. Policy enabled but no token -> **deny**, with an explanation. Enabled but unable to query
 //     GitHub means there is no evidence at all, and allowing here would make "turn on access
 //     control" the least protected state.
-//  4. For each enabled enterprise: check the allowed orgs first, then the allowed enterprise
+//  5. For each enabled enterprise: check the allowed orgs first, then the allowed enterprise
 //     teams. Any hit allows.
-//  5. Enterprise-level membership is only attempted under allow_all_orgs, and it is tri-state --
+//  6. Enterprise-level membership is only attempted under allow_all_orgs, and it is tri-state --
 //     "cannot tell" counts as no match, and evaluation falls back to probing the enumerated orgs
 //     of that enterprise one by one.
 //
@@ -48,6 +51,7 @@ import (
 	"sync"
 
 	"github.com/satomic/model-router/server-go/internal/config"
+	"github.com/satomic/model-router/server-go/internal/directory"
 	"github.com/satomic/model-router/server-go/internal/ghadmin"
 	"github.com/satomic/model-router/server-go/internal/ghcache"
 	"github.com/satomic/model-router/server-go/internal/omap"
@@ -63,6 +67,7 @@ var memberCodes = map[string]string{
 	"organization": "memberOrganization",
 	"team":         "memberTeam",
 	"enterprise":   "memberEnterprise",
+	"user_group":   "memberUserGroup",
 }
 
 func mapOf(pairs ...any) *omap.Map {
@@ -151,8 +156,59 @@ func Evaluate(ctx context.Context, cfg *config.RouterConfig, login string, isAdm
 		)
 	}
 
+	// Built-in user groups first: a local set lookup, so it decides without a token and
+	// without a GitHub call whenever it can.
+	userGroups := trimmedList(policy.Value("user_groups"))
+	detail := []any{}
+	memberOf := map[string]bool{}
+	for _, name := range directory.GroupsOf(login) {
+		memberOf[strings.ToLower(name)] = true
+	}
+	for _, name := range userGroups {
+		member := memberOf[strings.ToLower(name)]
+		detail = append(detail, mapOf(
+			"enterprise", "", "kind", "user_group", "name", name,
+			"member", member, "source", "directory",
+		))
+		if member {
+			return mapOf(
+				"allowed", true,
+				"reason", fmt.Sprintf("You are a member of the user group %s, so you can create API keys.", name),
+				"reason_code", "memberUserGroup",
+				"reason_params", mapOf("name", name, "enterprise", ""),
+				"policy_enabled", true,
+				"matched", mapOf("kind", "user_group", "enterprise", "", "name", name),
+				"detail", detail,
+			)
+		}
+	}
+	// What to say when nothing below can match either. With user groups configured, "no token"
+	// is not the whole story -- the caller is simply in none of the allowed places.
+	noMembership := func() *omap.Map {
+		return mapOf(
+			"allowed", false,
+			"reason", "You do not belong to any allowed user group, enterprise, enterprise team or "+
+				"organization, so you cannot create an API key and therefore cannot use "+
+				"BYOK. To request access, ask your administrator to add you to an allowed "+
+				"user group or to add your organization to the allow list.",
+			"reason_code", "noMembership",
+			"reason_params", omap.New(),
+			"policy_enabled", true,
+			"matched", nil,
+			"detail", detail,
+		)
+	}
+	// A built-in user is not a GitHub account; asking GitHub about the name would be asking about
+	// somebody else.
+	if directory.IsUser(login) {
+		return noMembership()
+	}
+
 	token := strings.TrimSpace(policy.Str("github_token"))
 	if token == "" {
+		if len(userGroups) > 0 {
+			return noMembership()
+		}
 		return mapOf(
 			"allowed", false,
 			"reason", "Enterprise access control is enabled, but the administrator has not "+
@@ -176,6 +232,9 @@ func Evaluate(ctx context.Context, cfg *config.RouterConfig, login string, isAdm
 		}
 	}
 	if len(activeSlugs) == 0 {
+		if len(userGroups) > 0 {
+			return noMembership()
+		}
 		return mapOf(
 			"allowed", false,
 			"reason", "Enterprise access control is enabled, but the administrator has not "+
@@ -188,7 +247,6 @@ func Evaluate(ctx context.Context, cfg *config.RouterConfig, login string, isAdm
 		)
 	}
 
-	detail := []any{}
 	var matched *match
 
 	for _, slug := range activeSlugs {
@@ -359,18 +417,7 @@ func Evaluate(ctx context.Context, cfg *config.RouterConfig, login string, isAdm
 		)
 	}
 
-	return mapOf(
-		"allowed", false,
-		"reason", "You do not belong to any allowed enterprise, enterprise team or "+
-			"organization, so you cannot create an API key and therefore cannot use "+
-			"BYOK. To request access, ask your administrator to add your organization "+
-			"to the allow list.",
-		"reason_code", "noMembership",
-		"reason_params", omap.New(),
-		"policy_enabled", true,
-		"matched", nil,
-		"detail", detail,
-	)
+	return noMembership()
 }
 
 func trimmedList(value any) []string {

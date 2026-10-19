@@ -465,7 +465,40 @@ still be widened back to everything, which is never refused.
 
 Full semantics: [Who may narrow a key's scope](access-control.md#who-may-narrow-a-keys-scope).
 
-### 2.8 AI credits: do not let BYOK waste what Copilot already includes
+### 2.8 Users and user groups
+
+For people who don't use GitHub, and for granting to a set of people at once. **Users** is a
+Management page with two tabs. Changes on it apply immediately; there is no save bar.
+
+![Built-in users](images/24-users.png)
+
+**Users** lists the built-in accounts. **New user** asks for a user name (fixed afterwards), an
+optional display name and email, a first password, the administrator role, and groups. Leave
+**Require a new password at the next sign-in** ticked when you chose the password: the user then
+replaces it at their first sign-in. Per row you can **Edit**, **Reset password** (signs the account
+out everywhere), **Disable** (signs it out and stops its API keys until it's enabled again) and
+**Delete** (also deletes its API keys; its traces stay). Your own row can't be disabled, demoted or
+deleted.
+
+A user name that already means someone else is refused: the local administrator's, a login in the
+administrator list, or a GitHub account that has signed in. A GitHub account is likewise refused
+sign-in under a built-in user's name.
+
+![User groups](images/25-user-groups.png)
+
+**User groups** are named sets of logins: tick built-in users and GitHub accounts that have signed
+in, or type a GitHub login that hasn't. Each card shows where the group is used. Then bind groups
+like any other scope:
+
+- **Model policy → User group bindings**: give a group a model group.
+- **Access control → Key policy → Allowed user groups**: members may create API keys. No enterprise
+  token is needed for this.
+- **Access control → Key scope → User groups**: members may narrow their keys.
+
+Deleting a group removes it from all three. Full details: [Built-in users and user
+groups](users-and-groups.md).
+
+### 2.9 AI credits: do not let BYOK waste what Copilot already includes
 
 Every Copilot Business / Enterprise seat comes with a monthly allowance of AI credits that is
 **pooled across the enterprise and forfeited at month end**. A user who routes everything through
@@ -509,7 +542,7 @@ Gated requests are still traced, with `ai-credits-gate` in both the model and th
 the enterprise, the reason (pool or budget) and the remaining credits or headroom in the detail. The
 derivation and the limits of GitHub's API are written up in [Copilot AI credits](ai-credits.md).
 
-### 2.9 Monitoring: usage, traces, playground
+### 2.10 Monitoring: usage, traces, playground
 
 #### Usage
 
@@ -572,15 +605,17 @@ latency, the response is shown below it, and **View the full trace** jumps to th
 The playground calls the same `/v1/chat/completions` as any other client, through the same key, so
 whatever it shows is what a real caller gets.
 
-### 2.10 A checklist for a new deployment
+### 2.11 A checklist for a new deployment
 
 1. Sign in as the local administrator and change the password.
 2. Add a backend connection and mark it default. *(Step 1)*
 3. Add your models, write real descriptions, mark one default, tick the reasoning ones. *(Step 2)*
 4. Pick a strategy and leave session stickiness on. *(Step 3)*
 5. Add the rules you are certain about. *(Step 4)*
-6. Configure GitHub OAuth and list the administrator logins, so people other than you can sign in.
-7. Decide the key policy: enterprise token, allowed organizations and teams, or leave it off.
+6. Configure GitHub OAuth and list the administrator logins, or create built-in users and user
+   groups on the Users page, so people other than you can sign in.
+7. Decide the key policy: allowed user groups, an enterprise token with allowed organizations and
+   teams, or leave it off.
 8. Optionally define model groups and grant them. Leave the policy off if everyone may use everything.
 9. If your users hold Copilot seats, turn polling on under AI credits, and the BYOK gate if wanted.
 10. Create a key on the API keys page and send one request from the Playground.
@@ -595,6 +630,11 @@ whatever it shows is what a real caller gets.
 Open the router's address in a browser and choose **Sign in with GitHub**:
 
 ![The sign-in screen](images/01-sign-in.png)
+
+If an administrator gave you a built-in account, choose **Sign in with a user name and password**
+instead (on a deployment without GitHub, the form is already open). The first time, you're asked to
+replace the password you were given with your own. Later you can change it from the user menu, top
+right.
 
 GitHub asks you to authorize the application once; afterwards you land on your own Usage page. Your
 session is a cookie and reaches the console only; it is not a credential for the API. If sign-in is

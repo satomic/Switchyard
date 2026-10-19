@@ -60,6 +60,9 @@ auth:
   # instead of hand-writing slugs and team ids.
   key_policy:
     enabled: false             # false = any account that can sign in may create a key
+    # Built-in user groups (console: Users) whose members may create keys. Checked before the
+    # enterprise rules below and needs no github_token, so this works without GitHub at all.
+    user_groups: []            # e.g. [research]
     github_token: ''           # Enterprise-admin PAT with admin:enterprise; stored only in this file
     # How often the enterprise/org/team structure and the member lists of the scopes named
     # below are refreshed into data/github/. Membership is then answered from that local copy
@@ -78,7 +81,7 @@ auth:
   # before scopes existed, so the default here is "nobody" and it takes nothing away. The reason
   # to keep it closed: a user who scopes their key to one expensive model has pinned every
   # request on that key to it, and routing cheap work to a cheap model stops applying.
-  # The three levels are combined with AND, but only the ones you actually fill in: a level left
+  # The levels are combined with AND, but only the ones you actually fill in: a level left
   # empty abstains instead of denying, otherwise listing an organization alone would match nobody.
   # Within one level any single match is enough. Administrators are exempt.
   key_scope_policy:
@@ -86,6 +89,10 @@ auth:
     users: []                  # GitHub logins, e.g. [your-github-login]
     teams: []                  # '<enterprise slug>/<team id>', e.g. ['your-enterprise-slug/14501973']
     organizations: []          # Organization logins, e.g. [your-org]
+    user_groups: []            # Built-in user groups (console: Users), e.g. [research]
+
+# Built-in users and user groups are not configured here: they live in data/directory.json and
+# are managed from the console's "Users" page. See docs/users-and-groups.md.
 
 # Backend connections: any OpenAI-compatible or Anthropic-compatible address and key
 # api_type: azure (Azure OpenAI / Foundry, deployment-path URLs)
@@ -223,6 +230,7 @@ model_policy:
   users: {}                    # {github-login: group}, e.g. {alice: full}
   teams: {}                    # {'<enterprise slug>/<team id>': group}, e.g. {'your-enterprise/14501973': full}
   organizations: {}            # {organization login: group}, e.g. {your-org: starter}
+  user_groups: {}              # {built-in user group: group}, e.g. {research: full}
 
 # Copilot AI credits: poll the enterprise's shared AI-credit pool from GitHub (with the
 # key_policy.github_token above) and, optionally, hold BYOK back while the pool still has credits

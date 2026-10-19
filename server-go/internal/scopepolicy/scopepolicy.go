@@ -15,6 +15,7 @@
 //	    users: [alice]                   # GitHub logins
 //	    teams: ['satomic/14501973']      # '<enterprise slug>/<team id>'
 //	    organizations: [nekoaru]         # organization logins
+//	    user_groups: [research]          # built-in user groups (internal/directory)
 //
 // Decision order:
 //
@@ -54,13 +55,14 @@ import (
 	"sync"
 
 	"github.com/satomic/model-router/server-go/internal/config"
+	"github.com/satomic/model-router/server-go/internal/directory"
 	"github.com/satomic/model-router/server-go/internal/ghcache"
 	"github.com/satomic/model-router/server-go/internal/omap"
 )
 
-// Levels are the three levels, in the order the console shows them and the order the reason
+// Levels are the four levels, in the order the console shows them and the order the reason
 // strings read in.
-var Levels = []string{"user", "team", "organization"}
+var Levels = []string{"user", "user_group", "team", "organization"}
 
 func mapOf(pairs ...any) *omap.Map {
 	out := omap.New()
@@ -141,12 +143,13 @@ func Evaluate(ctx context.Context, cfg *config.RouterConfig, login string, isAdm
 	users := entries(policy, "users")
 	teams := entries(policy, "teams")
 	orgs := entries(policy, "organizations")
+	userGroups := entries(policy, "user_groups")
 
-	if len(users) == 0 && len(teams) == 0 && len(orgs) == 0 {
+	if len(users) == 0 && len(teams) == 0 && len(orgs) == 0 && len(userGroups) == 0 {
 		return mapOf(
 			"allowed", false,
 			"reason", "Narrowing an API key is enabled, but the administrator has not allowed "+
-				"any user, team or organization yet, so every key covers all models and "+
+				"any user, user group, team or organization yet, so every key covers all models and "+
 				"all connection types. Please contact your administrator.",
 			"reason_code", "nobodyAllowed",
 			"reason_params", omap.New(),
@@ -163,8 +166,15 @@ func Evaluate(ctx context.Context, cfg *config.RouterConfig, login string, isAdm
 	// serial walk would put one round trip per scope on the first request after a cache miss.
 	teamResults := make([]answer, len(teams))
 	orgResults := make([]answer, len(orgs))
+	// A built-in user is not a GitHub account, so the GitHub levels are never asked about them:
+	// a configured team or organization level simply has no match for a built-in user.
+	builtin := directory.IsUser(login)
 	var wg sync.WaitGroup
 	for i, key := range teams {
+		if builtin {
+			teamResults[i] = answer{false, "builtin"}
+			continue
+		}
 		wg.Add(1)
 		go func(i int, key string) {
 			defer wg.Done()
@@ -179,6 +189,10 @@ func Evaluate(ctx context.Context, cfg *config.RouterConfig, login string, isAdm
 		}(i, key)
 	}
 	for i, org := range orgs {
+		if builtin {
+			orgResults[i] = answer{false, "builtin"}
+			continue
+		}
 		wg.Add(1)
 		go func(i int, org string) {
 			defer wg.Done()
@@ -204,6 +218,21 @@ func Evaluate(ctx context.Context, cfg *config.RouterConfig, login string, isAdm
 			break
 		}
 	}
+	groupMatch := ""
+	memberOf := map[string]bool{}
+	for _, name := range directory.GroupsOf(login) {
+		memberOf[strings.ToLower(name)] = true
+	}
+	for _, candidate := range userGroups {
+		if memberOf[strings.ToLower(candidate)] {
+			groupMatch = candidate
+			break
+		}
+	}
+	groupSource := ""
+	if groupMatch != "" {
+		groupSource = "directory"
+	}
 	teamMatch, teamSource := firstMatch(teams, teamResults)
 	orgMatch, orgSource := firstMatch(orgs, orgResults)
 
@@ -214,6 +243,8 @@ func Evaluate(ctx context.Context, cfg *config.RouterConfig, login string, isAdm
 	levels := []any{
 		mapOf("level", "user", "configured", len(users) > 0,
 			"passed", len(users) == 0 || userMatch != "", "matched", userMatch, "source", userSource),
+		mapOf("level", "user_group", "configured", len(userGroups) > 0,
+			"passed", len(userGroups) == 0 || groupMatch != "", "matched", groupMatch, "source", groupSource),
 		mapOf("level", "team", "configured", len(teams) > 0,
 			"passed", len(teams) == 0 || teamMatch != "", "matched", teamMatch, "source", teamSource),
 		mapOf("level", "organization", "configured", len(orgs) > 0,
@@ -226,7 +257,7 @@ func Evaluate(ctx context.Context, cfg *config.RouterConfig, login string, isAdm
 		row := item.(*omap.Map)
 		if row.Bool("configured", false) && !row.Bool("passed", false) {
 			failed = append(failed, row.Str("level"))
-			failedNames = append(failedNames, row.Str("level"))
+			failedNames = append(failedNames, strings.ReplaceAll(row.Str("level"), "_", " "))
 		}
 	}
 	if len(failed) > 0 {

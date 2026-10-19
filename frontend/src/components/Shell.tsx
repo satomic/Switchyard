@@ -4,6 +4,7 @@ import { NavLink } from 'react-router-dom'
 import { logout, type Health, type ReleaseStatus, type SessionUser } from '../api'
 import { systemTimeZone, zoneIds, zoneOffset, type TimeZone } from '../i18n/timezone'
 import LocalePicker from './LocalePicker'
+import PasswordModal from './PasswordModal'
 
 /** Where the project lives, for the builds that predate /healthz reporting it. The server is the
  *  authority whenever it answers; these only keep the header's links working while it does not. */
@@ -62,6 +63,8 @@ export default function Shell({
   const { t } = useTranslation()
   const [collapsed, setCollapsed] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [passwordOpen, setPasswordOpen] = useState(false)
+  const [passwordChanged, setPasswordChanged] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -180,7 +183,18 @@ export default function Shell({
                   <span className={`badge ${user.is_admin ? 'admin' : ''}`}>
                     {user.is_admin ? t('shell.roleAdmin') : t('shell.roleUser')}
                   </span>
+                  {user.local_user && (
+                    <span className="badge" style={{ marginLeft: 4 }}>{t('shell.builtinAccount')}</span>
+                  )}
+                  {(user.groups ?? []).map((g) => (
+                    <span key={g} className="badge" style={{ marginLeft: 4 }} title={t('shell.userGroup')}>
+                      {g}
+                    </span>
+                  ))}
                 </div>
+                {passwordChanged && (
+                  <div className="toast ok" style={{ marginBottom: 12 }}>{t('password.changedToast')}</div>
+                )}
                 {/* Held in this browser only, like the theme and the language: timestamps still
                     travel as UTC, and one reader's clock is not everybody's. */}
                 <label className="field" style={{ marginBottom: 12 }}>
@@ -202,6 +216,20 @@ export default function Shell({
                     ))}
                   </select>
                 </label>
+                {/* Built-in accounts only: a GitHub account's password is GitHub's, and the local
+                    administrator's credential is changed on Access control. */}
+                {user.local_user && (
+                  <button
+                    className="btn ghost sm"
+                    style={{ width: '100%', marginBottom: 8 }}
+                    onClick={() => {
+                      setPasswordChanged(false)
+                      setPasswordOpen(true)
+                    }}
+                  >
+                    {t('password.changeTitle')}
+                  </button>
+                )}
                 <button
                   className="btn ghost sm"
                   style={{ width: '100%' }}
@@ -220,6 +248,15 @@ export default function Shell({
           </div>
         </div>
       </header>
+
+      {passwordOpen && (
+        <PasswordModal
+          onClose={(changed) => {
+            setPasswordOpen(false)
+            setPasswordChanged(changed)
+          }}
+        />
+      )}
 
       <div className="shell">
         <nav className={`sidenav ${collapsed ? 'collapsed' : ''}`}>

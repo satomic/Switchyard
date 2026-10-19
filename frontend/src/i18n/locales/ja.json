@@ -207,17 +207,22 @@
     "policy": {
       "label": "モデルポリシー",
       "title": "モデルポリシー",
-      "subtitle": "モデルグループと、各ユーザー・チーム・Organization に付与されるグループ — 呼び出し元が要求できるモデルの範囲"
+      "subtitle": "モデルグループと、各ユーザー・ユーザーグループ・チーム・Organization に付与されるグループ — 呼び出し元が要求できるモデルの範囲"
     },
     "access": {
       "label": "アクセス制御",
       "title": "アクセス制御",
-      "subtitle": "管理者とサインイン範囲、GitHub OAuth アプリ、そして Enterprise / Team / Organization 単位で誰が API キーを作成できるかの制御"
+      "subtitle": "管理者とサインイン範囲、GitHub OAuth アプリ、そしてユーザーグループ / Enterprise / Team / Organization 単位で誰が API キーを作成できるかの制御"
     },
     "credits": {
       "label": "AI クレジット",
       "title": "Copilot AI クレジット",
       "subtitle": "エンタープライズの AI クレジット共有プール、ポーリング頻度、残高がある間 BYOK を保留するかどうか"
+    },
+    "users": {
+      "label": "ユーザー",
+      "title": "ユーザーとユーザーグループ",
+      "subtitle": "ユーザー名とパスワードでサインインする組み込みアカウントと、各ポリシーで紐づけられるユーザーグループ"
     }
   },
   "credits": {
@@ -365,7 +370,8 @@
     "bindingCount_other": "{{count}} 件の紐づけ",
     "kind": {
       "github": "GitHub",
-      "local": "ローカル"
+      "local": "ローカル",
+      "builtin": "組み込み"
     },
     "table": {
       "login": "ログイン名",
@@ -423,6 +429,14 @@
       "teamNotAllowed": "キーポリシー上、このチームは API キーを作成できません。",
       "orphan": "未検出",
       "orphanHint": "config.yaml では紐づいていますが、検出された構成には含まれていません（手入力、またはこのトークンでは読めなくなったエンタープライズ）。設定自体は有効です。"
+    },
+    "user_groups": {
+      "title": "ユーザーグループの紐づけ",
+      "lead": "<a>ユーザーページ</a>の組み込みユーザーグループです。紐づけられたグループのメンバーはそのモデルを使えます。所属はローカルで判定されるため、GitHub token がなくても機能します。",
+      "none": "ユーザーグループはまだありません。「ユーザー」ページで作成してください。",
+      "key": "ユーザーグループ",
+      "members": "メンバー",
+      "empty": "（メンバーなし）"
     }
   },
   "shell": {
@@ -445,7 +459,9 @@
     "update": {
       "available": "更新 {{version}}",
       "title": "バージョン {{version}} が公開されています。リリースノートを開きます。"
-    }
+    },
+    "builtinAccount": "組み込みアカウント",
+    "userGroup": "ユーザーグループ"
   },
   "login": {
     "title": "Model Router コンソール",
@@ -460,8 +476,11 @@
       "password": "パスワード",
       "submit": "サインイン",
       "hint": "ローカル管理者アカウントは github.com に到達できない場合のためのものです。config.yaml で設定され、GitHub アカウントではありません。",
-      "failed": "このユーザー名とパスワードの組み合わせは受け付けられませんでした。"
-    }
+      "failed": "このユーザー名とパスワードの組み合わせは受け付けられませんでした。",
+      "hintBuiltin": "組み込みアカウントは管理者が「ユーザー」ページで作成します。GitHub アカウントではありません。",
+      "disabled": "このアカウントは無効化されています。管理者に連絡してください。"
+    },
+    "leadLocal": "ユーザー名とパスワードでサインインします。サインイン後は API キーを作成し、自分の呼び出しと使用量を確認できます。管理者はユーザー、ルーティング戦略、バックエンド接続も管理できます。"
   },
   "setup": {
     "blocked": {
@@ -488,7 +507,14 @@
     "tooShort": "新しいパスワードは 8 文字以上にしてください。",
     "mismatch": "新しいパスワードが一致しません。",
     "submit": "パスワードを変更して続行",
-    "recovery": "サインインできなくなった場合は、config.yaml の auth.local_admin にある password_hash と password_salt を空にすると、組み込みの初期パスワードが再び有効になります。"
+    "recovery": "サインインできなくなった場合は、config.yaml の auth.local_admin にある password_hash と password_salt を空にすると、組み込みの初期パスワードが再び有効になります。",
+    "builtinTitle": "自分のパスワードを設定",
+    "builtinLead": "このアカウントは管理者が決めたパスワードで作成されています。続行するには自分のパスワードを設定してください。",
+    "builtinRecovery": "パスワードを忘れた場合は、管理者に「ユーザー」ページでリセットしてもらってください。",
+    "changeTitle": "パスワードの変更",
+    "changeSubmit": "パスワードを変更",
+    "changeLead": "パスワードを変更すると、他の場所でのサインインセッションはすべて終了します。このセッションはサインインしたままです。",
+    "changedToast": "パスワードを変更しました。"
   },
   "usage": {
     "allUsers": "全ユーザー",
@@ -543,7 +569,7 @@
       "policy-disabled": "このルーターではモデルポリシーが有効になっていないため、<strong>カタログのすべてのモデル</strong>を利用できます。",
       "administrator": "あなたは<strong>管理者</strong>です。モデルポリシーは権限の境界ではなく配布のコントロールなので、管理者には適用されず、カタログ全体が利用可能なままです。",
       "no-binding": "モデルポリシーは有効ですが、<strong>あなたのアカウントに紐づく設定がありません</strong>。既定モデルグループもなく、あなたに届くチーム・組織の付与もありません。紐づけのないアカウントはロックアウトではなく無制限として扱われるため、カタログ全体を利用できます。",
-      "union": "あなたのリストは、アカウント・チーム・組織を通じて付与されたすべてのモデルグループの<strong>和集合</strong>です。付与はモデルを増やすことしかできず、減らすことはありません。",
+      "union": "あなたのリストは、アカウント・ユーザーグループ・チーム・組織を通じて付与されたすべてのモデルグループの<strong>和集合</strong>です。付与はモデルを増やすことしかできず、減らすことはありません。",
       "empty-group": "あなたに付与されたモデルグループはすべて<strong>空</strong>のため、現在利用できるモデルはありません。管理者がアカウント・チーム・組織のいずれかに空でないモデルグループを紐づけるまで、リクエストは <code>403</code> で拒否されます。"
     },
     "blockedBadge": "利用可能なモデルなし",
@@ -560,7 +586,8 @@
       "default": "既定モデルグループ",
       "user": "アカウント",
       "team": "チーム",
-      "organization": "組織"
+      "organization": "組織",
+      "user_group": "ユーザーグループ"
     },
     "table": {
       "model": "モデル",
@@ -645,7 +672,7 @@
       "grantedVia": "許可の経路",
       "enterpriseParenOpen": "（Enterprise ",
       "enterpriseParenClose": "）",
-      "deniedExplanation": "<strong>これが意味するのは</strong>：サインインしてこのページを見ることはできますが、API キーは作成できません。キーがなければ GitHub Copilot BYOK からこのサービスの <code>/v1/chat/completions</code> を呼び出せません。利用したい場合は、以下の根拠を管理者に送り、「アクセス制御 → キーポリシー」であなたの Organization または Enterprise チームを許可してもらってください。",
+      "deniedExplanation": "<strong>これが意味するのは</strong>：サインインしてこのページを見ることはできますが、API キーは作成できません。キーがなければ GitHub Copilot BYOK からこのサービスの <code>/v1/chat/completions</code> を呼び出せません。利用したい場合は、以下の根拠を管理者に送り、許可されたユーザーグループに追加してもらうか、「アクセス制御 → キーポリシー」であなたの Organization または Enterprise チームを許可してもらってください。",
       "table": {
         "enterprise": "Enterprise",
         "scope": "範囲",
@@ -659,7 +686,9 @@
         "probe": "プローブ",
         "probeHint": "以前のライブプローブの結果から判定",
         "live": "ライブ",
-        "liveHint": "このリクエストで GitHub を呼び出して判定。この行は判定ごとに往復が発生します"
+        "liveHint": "このリクエストで GitHub を呼び出して判定。この行は判定ごとに往復が発生します",
+        "directory": "ローカル",
+        "directoryHint": "このサービス自身のユーザーグループから判定。GitHub は呼び出していません"
       },
       "reason": {
         "admin": "あなたはこのサービスの管理者なので、API キーをそのまま作成できます。",
@@ -670,7 +699,8 @@
         "memberTeam": "あなたはエンタープライズチーム {{name}}（エンタープライズ {{enterprise}}）のメンバーなので、API キーを作成できます。",
         "memberEnterprise": "あなたはエンタープライズ {{name}} のメンバーなので、API キーを作成できます。",
         "member": "あなたは {{name}}（エンタープライズ {{enterprise}}）のメンバーなので、API キーを作成できます。",
-        "noMembership": "許可されたエンタープライズ、エンタープライズチーム、Organization のいずれにも所属していないため、API キーを作成できず、BYOK も利用できません。利用を申請するには、あなたの Organization を許可リストに追加するよう管理者に依頼してください。"
+        "noMembership": "許可されたユーザーグループ、エンタープライズ、エンタープライズチーム、Organization のいずれにも所属していないため、API キーを作成できず、BYOK も利用できません。利用を申請するには、許可されたユーザーグループに追加するか、あなたの Organization を許可リストに追加するよう管理者に依頼してください。",
+        "memberUserGroup": "ユーザーグループ {{name}} のメンバーなので、API キーを作成できます。"
       },
       "scanned": "（{{count}} 件を調査）",
       "scannedTruncated": "（{{count}} 件を調査、以降は省略）",
@@ -711,14 +741,15 @@
       "verdict": {
         "admin": "管理者はどのキーにもスコープを設定できます。",
         "off": "このデプロイでは API キーの範囲を狭めることが有効になっていないため、すべてのキーがすべてのモデルとすべての接続タイプを対象にします。管理者に連絡してください。",
-        "nobodyAllowed": "API キーの範囲を狭める機能は有効ですが、管理者がまだどのユーザー、チーム、Organization も許可していないため、すべてのキーがすべてのモデルとすべての接続タイプを対象にします。管理者に連絡してください。",
+        "nobodyAllowed": "API キーの範囲を狭める機能は有効ですが、管理者がまだどのユーザー、ユーザーグループ、チーム、Organization も許可していないため、すべてのキーがすべてのモデルとすべての接続タイプを対象にします。管理者に連絡してください。",
         "levelsFailed": "API キーの範囲を狭めることは許可されていません。管理者は{{levels}}のレベルでの一致を求めていますが、あなたは一致しません。作成するキーはすべてのモデルとすべての接続タイプを対象にします。管理者に連絡してください。",
         "allowed": "API キーを特定のモデルまたは特定の接続タイプに制限できます。"
       },
       "levelName": {
         "user": "ユーザー",
         "team": "チーム",
-        "organization": "Organization"
+        "organization": "Organization",
+        "user_group": "ユーザーグループ"
       }
     }
   },
@@ -740,7 +771,7 @@
       },
       "policy": {
         "label": "キーポリシー",
-        "hint": "Enterprise / Team / Organization 単位で誰がキーを作成できるかを制御"
+        "hint": "ユーザーグループ / Enterprise / Team / Organization 単位で誰がキーを作成できるかを制御"
       },
       "keyscope": {
         "label": "キーのスコープ",
@@ -752,7 +783,8 @@
       "team": "Enterprise チーム",
       "enterprise": "Enterprise 直属メンバー",
       "org-scan": "Organization の一括調査",
-      "admin": "サービス管理者"
+      "admin": "サービス管理者",
+      "user_group": "ユーザーグループ"
     },
     "admins": {
       "title": "管理者",
@@ -837,11 +869,11 @@
       "title": "キー作成ポリシー",
       "enabled": "有効",
       "disabled": "無効",
-      "toggle": "指定した Enterprise / Organization のユーザーだけに API キーの作成を許可する",
-      "enabledNote": "有効：一般ユーザーがキーを作成する際、その Enterprise と Organization の所属を GitHub にリアルタイムで確認し、許可された範囲のいずれにも属さないユーザーは拒否されます（403）。そのため BYOK も使えません。管理者はこの制限を受けません。",
+      "toggle": "指定したユーザーグループ / Enterprise / Organization のユーザーだけに API キーの作成を許可する",
+      "enabledNote": "有効：一般ユーザーがキーを作成する際、まず所属するユーザーグループを確認し、次にその Enterprise と Organization の所属を GitHub で確認します。許可された範囲のいずれにも属さないユーザーは拒否されます（403）。そのため BYOK も使えません。管理者はこの制限を受けません。",
       "disabledNote": "無効：<strong>サインインできる GitHub アカウントであれば誰でも API キーを作成し BYOK を使えます</strong>。上の「任意の GitHub アカウントのサインインを許可する」もオンなら、GitHub 全体に開放しているのと同じです。",
       "missingTokenBadge": "token がありません",
-      "missingTokenNote": "ポリシーは有効ですが Enterprise token が未設定のため所属を確認できず、<strong>現在は管理者以外のすべてのキー作成リクエストを拒否します</strong>。下に token を入力してください。",
+      "missingTokenNote": "ポリシーは有効ですが、Enterprise token が未設定で、許可されたユーザーグループもないため所属を確認できず、<strong>現在は管理者以外のすべてのキー作成リクエストを拒否します</strong>。下でユーザーグループを許可するか、token を入力してください。",
       "tokenTitle": "GitHub Enterprise 管理者 token",
       "tokenOk": "有効",
       "tokenBad": "異常",
@@ -884,18 +916,23 @@
       "allowedTeamsHint": "メンバー判定はチームの数値 id で行います（GitHub は id しか受け付けません）。画面とユーザー側にはチーム名を表示します",
       "teamListUnavailable": "チーム一覧を取得できません",
       "teamListUnavailableNote": "— この Enterprise は Organization 単位でのみ許可できます。",
-      "noTeams": "この Enterprise には Enterprise チームがありません。"
+      "noTeams": "この Enterprise には Enterprise チームがありません。",
+      "userGroups": {
+        "title": "許可するユーザーグループ",
+        "lead": "チェックしたグループのメンバーは API キーを作成できます。グループは<a>ユーザーページ</a>で管理され、組み込みユーザーと GitHub アカウントを含められます。どの Enterprise ルールよりも先に判定され、GitHub token は不要です。",
+        "none": "ユーザーグループはまだありません。「ユーザー」ページで作成してください。"
+      }
     },
     "keyscope": {
       "title": "API キーのスコープを絞る",
       "on": "下記のアカウントに許可",
       "off": "誰にも許可しない",
-      "toggle": "下記のユーザー、チーム、組織に自分の API キーを絞ることを許可する",
+      "toggle": "下記のユーザー、ユーザーグループ、チーム、組織に自分の API キーを絞ることを許可する",
       "onNote": "誰が絞れるかは下の 3 つの表で決まります。それ以外のアカウントが作るキーは<strong>すべてのモデルとすべての接続タイプ</strong>を対象にします。",
       "offNote": "誰もキーを絞れません。すべてのキーが<strong>すべてのモデルとすべての接続タイプ</strong>を対象にします。これはスコープ機能が入る前のキーと同じ挙動なので、オフのままにしても何も取り上げません。",
       "why": "高価なモデル 1 つにキーを絞ると、<strong>そのキーのすべてのリクエストがそのモデルに固定されます</strong>。安い処理を安いモデルに回すという前提が、そのキーでは成り立たなくなります。この設定はそのコストを防ぐためにあります。",
       "emptyBadge": "現在は誰も該当しません",
-      "empty": "オンですが 3 つの表がすべて空なので、まだ誰もキーを絞れません。ユーザー、チーム、組織を少なくとも 1 つ追加してください。",
+      "empty": "オンですがすべての表が空なので、まだ誰もキーを絞れません。ユーザー、ユーザーグループ、チーム、組織を少なくとも 1 つ追加してください。",
       "ruleAnd": "入力した表は<strong>すべて一致する必要があります</strong>。2 つ入力すれば、両方に一致することが条件になります。",
       "ruleAbstain": "空の表は<strong>判定に使われません</strong>。組織だけを入力すれば、その組織の全員が対象になります。",
       "ruleOr": "同じ表の中では、いずれか 1 つに一致すれば十分です。",
@@ -932,7 +969,8 @@
         "orgNotAllowed": "キーポリシーは、この Organization に API キーの作成を許可していません。",
         "teamNotAllowed": "キーポリシーは、このチームに API キーの作成を許可していません。",
         "userNotAllowed": "キーポリシーにより、このアカウントは API キーを作成できないため、範囲を狭める対象のキーも存在しません。",
-        "unknown": "このアカウントが API キーを作成できるかどうかを確認できなかったため、非表示にせず表示しています。"
+        "unknown": "このアカウントが API キーを作成できるかどうかを確認できなかったため、非表示にせず表示しています。",
+        "groupNotAllowed": "このユーザーグループはキーポリシーで API キーの作成を許可されていません。"
       },
       "table": {
         "source": "取得元",
@@ -968,6 +1006,17 @@
         "addTitle": "組織を追加",
         "prompt": "組織のログイン名。",
         "noneEligible": "キーポリシーで API キーを作成できる Organization がないため、ここで許可する対象がありません。「アクセス制御 → キーポリシー」で許可するか、Organization を手動で追加してください。"
+      },
+      "user_groups": {
+        "title": "ユーザーグループ",
+        "lead": "「ユーザー」ページの組み込みユーザーグループです。メンバーが自分のキーを絞ってよいグループにチェックを入れてください。",
+        "key": "ユーザーグループ",
+        "none": "ユーザーグループはまだありません。「ユーザー」ページで作成してください。",
+        "search": "グループを絞り込む",
+        "addTitle": "ユーザーグループを追加",
+        "prompt": "メンバーが自分のキーを絞れるユーザーグループの名前。",
+        "noneEligible": "キーポリシーで API キーの作成を許可されたユーザーグループがないため、ここで許可する対象がありません。「アクセス制御 → キーポリシー」で許可してください。",
+        "source_other": "ユーザーグループ · メンバー {{count}} 人"
       }
     }
   },
@@ -1407,6 +1456,130 @@
       "defaultNote": "ほかで決まらなかった場合に使う",
       "unused": "この戦略では使わない",
       "noModel": "未設定"
+    }
+  },
+  "users": {
+    "section": {
+      "users": {
+        "label": "ユーザー",
+        "hint": "ユーザー名とパスワードでサインインする組み込みアカウント"
+      },
+      "groups": {
+        "label": "ユーザーグループ",
+        "hint": "組み込みユーザーと GitHub アカウントからなる名前付きの集合。各ポリシーでチームと同じように紐づけられます"
+      }
+    },
+    "noMatch": "「{{query}}」に一致する項目はありません。",
+    "kind": {
+      "builtin": "組み込み",
+      "github": "GitHub"
+    },
+    "users": {
+      "title": "組み込みユーザー",
+      "count_other": "{{count}} ユーザー",
+      "search": "ユーザーを絞り込む",
+      "new": "新しいユーザー",
+      "lead": "GitHub ではなくこのサービス内に存在するアカウントです。サインインページで<strong>ユーザー名とパスワード</strong>を使ってサインインし、GitHub アカウントと同じように API キー、トレース、使用量を利用できます。ここでの変更はすぐに反映され、保存は不要です。",
+      "none": "組み込みユーザーはまだいません。作成すると、GitHub アカウントがなくてもサインインできます。",
+      "table": {
+        "user": "ユーザー",
+        "role": "ロール",
+        "status": "状態",
+        "groups": "グループ",
+        "keys": "API キー",
+        "lastSeen": "最終サインイン"
+      },
+      "statusActive": "有効",
+      "statusDisabled": "無効",
+      "mustChange": "パスワード変更が必要",
+      "mustChangeHint": "このユーザーは次回のサインイン時に、他の操作の前に新しいパスワードを設定する必要があります。",
+      "neverSignedIn": "なし",
+      "edit": "編集",
+      "resetPassword": "パスワードをリセット",
+      "enable": "有効にする",
+      "disable": "無効にする",
+      "notYourself": "自分のアカウントにはこの操作を行えません。",
+      "disableTitle": "{{name}} を無効にしますか？",
+      "disableMessage_other": "このユーザーはただちにサインアウトされ、サインインできなくなります。アカウントが再び有効になるまで、{{count}} 個の API キーも使えなくなります。",
+      "disabledToast": "{{name}} を無効にしました。",
+      "enabledToast": "{{name}} を再び有効にしました。",
+      "deleteTitle": "{{name}} を削除しますか？",
+      "deleteMessage_other": "<strong>{{name}}</strong> はすべてのグループから外されてサインアウトされ、{{count}} 個の API キーは削除されます。トレースは残ります。この操作は元に戻せません。",
+      "deletedToast": "{{name}} を削除しました。",
+      "createdToast": "{{name}} を作成しました。ユーザー名と設定したパスワードを本人に伝えてください。",
+      "savedToast": "{{name}} を保存しました。",
+      "resetToast": "{{name}} のパスワードをリセットし、すべてのセッションをサインアウトしました。",
+      "howTitle": "組み込みユーザーのしくみ",
+      "howSignIn": "<strong>サインイン。</strong>有効な組み込みユーザーが 1 人以上いれば、サインインページにユーザー名とパスワードのフォームが表示されます。GitHub も設定されている場合は両方が並びます。",
+      "howPolicies": "<strong>権限。</strong>組み込みユーザーは GitHub ログイン名と同じように紐づけられます。モデルポリシーとキーのスコープではユーザー名で、モデルポリシー、キーポリシー、キーのスコープでは所属するユーザーグループを通じて紐づけます。GitHub の Organization やチームが適用されることはありません。",
+      "howNames": "<strong>ユーザー名。</strong>すでに別の人を表す名前は使えません。ローカル管理者、admin_logins にある GitHub 管理者、サインインしたことのある GitHub アカウントがこれに当たります。逆に、組み込みユーザーと同じ名前の GitHub アカウントはサインインを拒否されます。",
+      "howDisable": "<strong>無効化とリセット。</strong>アカウントを無効にすると、そのコンソールセッションと API キーはただちに使えなくなります。パスワードをリセットすると、そのアカウントのすべてのセッションがサインアウトされます。"
+    },
+    "form": {
+      "createTitle": "新しい組み込みユーザー",
+      "editTitle": "{{name}} を編集",
+      "create": "作成",
+      "save": "保存",
+      "username": "ユーザー名",
+      "usernameHint": "英字、数字、「.」「_」「-」。後から変更できません",
+      "usernameFixed": "変更できません",
+      "usernameInvalid": "英字、数字、「.」「_」「-」を 1～64 文字で、先頭は英字か数字にしてください。",
+      "displayName": "表示名",
+      "email": "メールアドレス",
+      "emailHint": "任意。記録用です",
+      "password": "パスワード",
+      "passwordHint": "{{count}} 文字以上",
+      "confirm": "パスワード（確認）",
+      "isAdmin": "管理者",
+      "isAdminHint": "管理者はこのサービスを管理します。ルーティング、接続、ポリシー、ユーザー、そして全ユーザーのトレースが対象です。",
+      "isAdminSelf": "これは自分のアカウントです。自分の管理者ロールは外せません。",
+      "mustChange": "次回サインイン時に新しいパスワードを求める",
+      "mustChangeHint": "パスワードを自分で決めた場合は推奨します。ユーザーは本人だけが知るパスワードに置き換えます。",
+      "groups": "ユーザーグループ",
+      "noGroups": "ユーザーグループはまだありません。「ユーザーグループ」タブで作成してください。"
+    },
+    "reset": {
+      "title": "{{name}} のパスワードをリセット",
+      "submit": "パスワードをリセット",
+      "lead": "このアカウントのすべてのセッションがサインアウトされます。新しいパスワードは信頼できる手段でユーザーに伝えてください。"
+    },
+    "groups": {
+      "title": "ユーザーグループ",
+      "count_other": "{{count}} グループ",
+      "new": "新しいグループ",
+      "lead": "ユーザーグループはログイン名の名前付きの集合で、<strong>組み込みユーザーも GitHub アカウントも</strong>入れられます。各ポリシーは GitHub チームと同じようにグループを紐づけられ、所属はこのサービス内で判定されるので GitHub token は不要です。",
+      "none": "ユーザーグループはまだありません。",
+      "memberCount_other": "メンバー {{count}} 人",
+      "empty": "メンバーはまだいません。",
+      "usedModel": "モデルグループ：{{group}}",
+      "usedModelHint": "モデルポリシーで紐づけ済み",
+      "usedKeyPolicy": "キーを作成可",
+      "usedKeyScope": "キーを絞り込み可",
+      "deleteTitle": "グループ {{name}} を削除しますか？",
+      "deleteMessage": "メンバーのアカウントは残り、グループだけが削除されます。",
+      "deleteUsed": "メンバーのアカウントは残り、グループだけが削除されます。グループはモデルポリシー、キーポリシー、キーのスコープからも外されるため、メンバーに付与されていた権限は適用されなくなります。",
+      "deletedToast": "グループ {{name}} を削除しました。",
+      "savedToast": "グループ {{name}} を保存しました。",
+      "createTitle": "新しいユーザーグループ",
+      "editTitle": "グループ {{name}} を編集",
+      "name": "グループ名",
+      "nameHint": "英字、数字、「.」「_」「-」。後から変更できません",
+      "nameInvalid": "英字、数字、「.」「_」「-」を 1～64 文字で、先頭は英字か数字にしてください。",
+      "description": "説明",
+      "builtinMembers": "組み込みユーザー",
+      "selected_other": "{{count}} 人を選択中",
+      "noBuiltin": "組み込みユーザーはまだいません。",
+      "githubMembers": "GitHub アカウント",
+      "githubMembersHint": "サインインしたことのあるアカウントです。まだのアカウントは下にログイン名を入力して追加します",
+      "noGithub": "まだ GitHub アカウントでサインインした人はいません。",
+      "typePlaceholder": "GitHub ログイン名（例: octocat）",
+      "add": "追加",
+      "badLogin": "「{{name}}」は有効なログイン名ではありません。",
+      "whereTitle": "グループが使われる場所",
+      "whereModels": "<strong><a>モデルポリシー</a></strong>：ユーザーグループにモデルグループを紐づけると、メンバーはそのモデルを使えます。他の付与とは和集合になります。",
+      "whereKeys": "<strong><a>アクセス制御 → キーポリシー</a></strong>：許可されたグループのメンバーは API キーを作成できます。最初に判定され、GitHub token は不要です。",
+      "whereScope": "<strong><a>アクセス制御 → キーのスコープ</a></strong>：キーを絞り込める人のうち、ユーザーグループの階層です。",
+      "whereSignIn": "<strong>GitHub サインイン</strong>：<code>allow_any_github_user</code> がオフでも、いずれかのユーザーグループに属する GitHub アカウントはサインインできます。"
     }
   }
 }

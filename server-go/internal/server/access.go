@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/satomic/model-router/server-go/internal/directory"
 	"github.com/satomic/model-router/server-go/internal/ghadmin"
 	"github.com/satomic/model-router/server-go/internal/ghcache"
 	"github.com/satomic/model-router/server-go/internal/keypolicy"
@@ -267,7 +268,7 @@ func (a *App) keyEligibility(ctx context.Context, logins []string) map[string]bo
 					logWarn("key-creation eligibility failed for %s: %v", login, rec)
 				}
 			}()
-			verdict := keypolicy.Evaluate(ctx, cfg, login, cfg.IsAdminLogin(login))
+			verdict := keypolicy.Evaluate(ctx, cfg, login, a.isAdminLogin(login))
 			allowed := verdict.Bool("allowed", false)
 			results[i] = &allowed
 		}(i, login)
@@ -297,7 +298,7 @@ func (a *App) listSignedInUsers(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	cfg := a.Config()
-	users := a.AuthStore.ListKnownUsers()
+	users := a.knownAndBuiltinUsers()
 	// The group each user currently resolves to by binding, so the admin table can show it
 	// without a second round trip per row. Bindings are read straight from the policy: doing a
 	// full modelpolicy.Evaluate per user would mean a GitHub membership check per row.
@@ -357,6 +358,34 @@ func (a *App) listSignedInUsers(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// knownAndBuiltinUsers is the sign-in registry plus every built-in user that has not signed in
+// yet. An administrator creates a built-in account and then binds it to a model group or a key
+// scope straight away; making them wait for the user's first sign-in would be a needless step
+// that GitHub accounts only have because nothing is known about them before it.
+func (a *App) knownAndBuiltinUsers() []*omap.Map {
+	users := a.AuthStore.ListKnownUsers()
+	seen := map[string]bool{}
+	for _, user := range users {
+		seen[strings.ToLower(user.Str("login"))] = true
+	}
+	if store := directory.Active(); store != nil {
+		for _, user := range store.ListUsers() {
+			if seen[strings.ToLower(user.Username)] {
+				continue
+			}
+			name := user.DisplayName
+			if name == "" {
+				name = user.Username
+			}
+			users = append(users, mapOf(
+				"login", user.Username, "name", name, "avatar_url", nil, "kind", "builtin",
+				"first_seen", nil, "last_seen", nil, "sign_ins", json.Number("0"),
+			))
+		}
+	}
+	return users
+}
+
 var (
 	membershipNamePattern = regexp.MustCompile(`^[A-Za-z0-9_.-]*(/[0-9]+)?$`)
 	topologyLoginPattern  = regexp.MustCompile(`^[A-Za-z0-9_.@-]+$`)
@@ -379,7 +408,7 @@ func (a *App) topologyMembers(w http.ResponseWriter, r *http.Request) error {
 
 	if kind == "known" {
 		known := omap.New()
-		for _, user := range a.AuthStore.ListKnownUsers() {
+		for _, user := range a.knownAndBuiltinUsers() {
 			known.Set(strings.ToLower(user.Str("login")), user)
 		}
 		logins := map[string]bool{}

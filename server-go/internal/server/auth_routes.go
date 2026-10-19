@@ -2,12 +2,16 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/satomic/model-router/server-go/internal/auth"
 	"github.com/satomic/model-router/server-go/internal/config"
+	"github.com/satomic/model-router/server-go/internal/directory"
 	"github.com/satomic/model-router/server-go/internal/keyscope"
 	"github.com/satomic/model-router/server-go/internal/localadmin"
 	"github.com/satomic/model-router/server-go/internal/modelpolicy"
@@ -63,6 +67,11 @@ func (a *App) authStatus(w http.ResponseWriter, r *http.Request) error {
 		// keeps it reachable when github.com is not.
 		"local_admin_enabled", cfg.LocalAdminEnabled(),
 		"local_admin_username", localUsername,
+		// Whether the username/password form has anybody behind it: the local administrator, or
+		// at least one enabled built-in user. A deployment that has turned the local
+		// administrator off can still run on built-in accounts alone.
+		"local_login_enabled", cfg.LocalAdminEnabled() || directory.HasEnabledUsers(),
+		"builtin_users", directory.HasEnabledUsers(),
 	), nil)
 	return nil
 }
@@ -73,10 +82,14 @@ func (a *App) authStatus(w http.ResponseWriter, r *http.Request) error {
 // whether the account has been renamed. Note there is no rate limiting: this is the app's only
 // brute-forceable surface, and a deployment exposed beyond a trusted network should disable the
 // account or put a proxy in front of it.
+//
+// The same form signs in built-in users (internal/directory). The local administrator is tried
+// first by name, so a built-in user can never shadow it; the directory refuses that name anyway.
 func (a *App) localLogin(w http.ResponseWriter, r *http.Request) error {
 	cfg := a.Config()
-	if !cfg.LocalAdminEnabled() {
-		return errorf(http.StatusServiceUnavailable, "the local administrator account is disabled")
+	builtin := directory.HasEnabledUsers()
+	if !cfg.LocalAdminEnabled() && !builtin {
+		return errorf(http.StatusServiceUnavailable, "username/password sign-in is not available")
 	}
 	payload, err := readJSONObject(r)
 	if err != nil {
@@ -84,7 +97,10 @@ func (a *App) localLogin(w http.ResponseWriter, r *http.Request) error {
 	}
 	username := strings.TrimSpace(payload.Str("username"))
 	password := payload.Str("password")
-	if !cfg.IsLocalAdminLogin(username) || !localadmin.VerifyPassword(cfg.LocalAdminSettings(), password) {
+	if !cfg.IsLocalAdminLogin(username) {
+		return a.builtinLogin(w, r, username, password)
+	}
+	if !localadmin.VerifyPassword(cfg.LocalAdminSettings(), password) {
 		logWarn("local admin sign-in failed username=%q", headRunes(username, 64))
 		return errorf(http.StatusUnauthorized, "incorrect username or password")
 	}
@@ -104,6 +120,78 @@ func (a *App) localLogin(w http.ResponseWriter, r *http.Request) error {
 	auth.SetSessionCookie(w, r, sid, cfg.AuthSessionTTL)
 	logInfo("local admin login login=%s must_change=%v", login, mustChange)
 	writeJSON(w, http.StatusOK, mapOf("ok", true, "must_change_password", mustChange), nil)
+	return nil
+}
+
+// builtinLogin signs in a built-in user. Same single failure message as the local administrator.
+func (a *App) builtinLogin(w http.ResponseWriter, r *http.Request, username, password string) error {
+	cfg := a.Config()
+	store := directory.Active()
+	var user *directory.User
+	if store != nil && username != "" && password != "" {
+		user = store.Authenticate(username, password)
+	}
+	if user == nil {
+		logWarn("built-in sign-in failed username=%q", headRunes(username, 64))
+		return errorf(http.StatusUnauthorized, "incorrect username or password")
+	}
+	if user.Disabled {
+		// Said only after the password checked out, so it reveals nothing to a guesser.
+		logWarn("built-in sign-in refused, account disabled username=%s", user.Username)
+		return errorf(http.StatusForbidden, "this account has been disabled; please contact your administrator")
+	}
+	name := user.DisplayName
+	if name == "" {
+		name = user.Username
+	}
+	sid := a.AuthStore.CreateSession(mapOf(
+		"login", user.Username,
+		"name", name,
+		"avatar_url", nil,
+		"is_admin", user.IsAdmin,
+		// internal/auth re-reads the account on every request through this flag, and the
+		// credential version is what a later password change compares against.
+		"local_user", true,
+		"credential_version", json.Number(strconv.Itoa(user.CredentialVersion)),
+		"must_change_password", user.MustChange,
+	), cfg.AuthSessionTTL)
+	auth.SetSessionCookie(w, r, sid, cfg.AuthSessionTTL)
+	logInfo("built-in user login login=%s admin=%v must_change=%v", user.Username, user.IsAdmin, user.MustChange)
+	writeJSON(w, http.StatusOK, mapOf("ok", true, "must_change_password", user.MustChange), nil)
+	return nil
+}
+
+// changeOwnPassword lets a built-in user change their own password.
+//
+// Exempt from the forced-change gate, like the local administrator's form: it is how an account
+// created with "must change at first sign-in" gets past that gate. Every other session of the
+// account ends; this one carries on under the new credential version.
+func (a *App) changeOwnPassword(w http.ResponseWriter, r *http.Request) error {
+	user, err := a.user(r)
+	if err != nil {
+		return err
+	}
+	if !user.Bool("local_user", false) {
+		return errorf(http.StatusForbidden, "only built-in users change their password here")
+	}
+	store := directory.Active()
+	if store == nil {
+		return errorf(http.StatusServiceUnavailable, "the user directory is not available")
+	}
+	payload, err := readJSONObject(r)
+	if err != nil {
+		return err
+	}
+	updated, err := store.ChangeOwnPassword(user.Str("login"), payload.Str("current_password"), payload.Str("new_password"))
+	if err != nil {
+		return directoryError(err)
+	}
+	a.AuthStore.UpdateSession(auth.Cookie(r, auth.SessionCookie), mapOf(
+		"credential_version", json.Number(strconv.Itoa(updated.CredentialVersion)),
+		"must_change_password", false,
+	))
+	logInfo("built-in user changed their password login=%s", updated.Username)
+	writeJSON(w, http.StatusOK, mapOf("ok", true), nil)
 	return nil
 }
 
@@ -141,6 +229,9 @@ func (a *App) localAdminPassword(w http.ResponseWriter, r *http.Request) error {
 		if problem != "" {
 			return errorf(http.StatusUnprocessableEntity, "%s", problem)
 		}
+	}
+	if directory.IsUser(newUsername) {
+		return errorf(http.StatusConflict, "%s is already the name of a built-in user", newUsername)
 	}
 
 	salt, digest, err := localadmin.HashPassword(newPassword, "")
@@ -306,6 +397,13 @@ func (a *App) githubCallback(w http.ResponseWriter, r *http.Request) error {
 	cfg := a.Config()
 	user, err := auth.ExchangeCodeForUser(r.Context(), r, cfg, code)
 	if err != nil {
+		// A refusal (not on the sign-in list, a login taken by a built-in user) goes back to the
+		// sign-in card with its reason, rather than leaving the browser on a bare JSON body.
+		var httpErr *auth.HTTPError
+		if errors.As(err, &httpErr) && (httpErr.Status == http.StatusForbidden || httpErr.Status == http.StatusConflict) {
+			http.Redirect(w, r, "/?login_error="+url.QueryEscape(httpErr.Error()), http.StatusTemporaryRedirect)
+			return nil
+		}
 		return err
 	}
 	sid := a.AuthStore.CreateSession(user, cfg.AuthSessionTTL)

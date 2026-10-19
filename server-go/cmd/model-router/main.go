@@ -24,6 +24,7 @@ import (
 	"github.com/satomic/model-router/server-go/internal/auth"
 	"github.com/satomic/model-router/server-go/internal/authstore"
 	"github.com/satomic/model-router/server-go/internal/config"
+	"github.com/satomic/model-router/server-go/internal/directory"
 	"github.com/satomic/model-router/server-go/internal/ghcache"
 	"github.com/satomic/model-router/server-go/internal/release"
 	"github.com/satomic/model-router/server-go/internal/server"
@@ -109,6 +110,8 @@ func main() {
 
 	traceStore := traces.New(filepath.Join(config.LogDir, "traces"), 500)
 	store := authstore.New(config.DataDir)
+	// Built-in users and user groups, consulted by sign-in, every policy and the session check.
+	directory.Use(directory.New(config.DataDir))
 	app := server.New(cfg, traceStore, store, filepath.Join(config.Root, "frontend", "dist"))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

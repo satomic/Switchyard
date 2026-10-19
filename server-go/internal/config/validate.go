@@ -412,7 +412,7 @@ func validateModelPolicy(value any, groups *omap.Map) []string {
 		errors = append(errors, fmt.Sprintf("model_policy.default_group %s is not a known model group",
 			quote(omap.AsString(defaultGroup))))
 	}
-	for _, field := range []string{"users", "teams", "organizations"} {
+	for _, field := range []string{"users", "teams", "organizations", "user_groups"} {
 		raw := policy.Value(field)
 		if raw == nil {
 			continue
@@ -452,6 +452,18 @@ func validateKeyPolicy(value any) []string {
 	if policy.Has("enabled") {
 		if _, ok := policy.Value("enabled").(bool); !ok {
 			errors = append(errors, "auth.key_policy.enabled must be a boolean")
+		}
+	}
+	if groups := policy.Value("user_groups"); groups != nil {
+		if items, ok := groups.([]any); !ok {
+			errors = append(errors, "auth.key_policy.user_groups must be a list")
+		} else {
+			for _, item := range items {
+				switch item.(type) {
+				case *omap.Map, []any:
+					errors = append(errors, "auth.key_policy.user_groups must be a list of group names")
+				}
+			}
 		}
 	}
 	raw := policy.Value("enterprises")
@@ -512,7 +524,7 @@ func validateKeyScopePolicy(value any) []string {
 			errors = append(errors, "auth.key_scope_policy.enabled must be a boolean")
 		}
 	}
-	for _, field := range []string{"users", "teams", "organizations"} {
+	for _, field := range []string{"users", "teams", "organizations", "user_groups"} {
 		raw := policy.Value(field)
 		if raw == nil {
 			continue

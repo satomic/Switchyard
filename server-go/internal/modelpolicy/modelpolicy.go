@@ -17,6 +17,8 @@
 //	    my-enterprise/14501973: full   # "<enterprise slug>/<team id>", as ghcache keys it
 //	  organizations:
 //	    acme: full                # an organization login
+//	  user_groups:
+//	    research: full            # a built-in user group (internal/directory)
 //
 // Resolution, and the two questions the shape forces:
 //
@@ -41,6 +43,10 @@
 // How the effective set is *enforced* is not in this package. The router applies it by
 // narrowing the catalog (RouterConfig.RestrictedTo) before any routing decision runs.
 //
+// User-group membership is local (internal/directory) and needs no lookup at all. A built-in
+// user is never looked up on GitHub: a GitHub account that happens to share the name is somebody
+// else, and its organizations must not leak onto the built-in account.
+//
 // Membership answers come from internal/ghcache, cache-first with a live fallback, exactly as
 // the key policy does. Unlike the key policy, a membership lookup that cannot be answered here
 // fails *open* for that one scope: it simply does not contribute. Failing closed would be wrong
@@ -57,6 +63,7 @@ import (
 	"time"
 
 	"github.com/satomic/model-router/server-go/internal/config"
+	"github.com/satomic/model-router/server-go/internal/directory"
 	"github.com/satomic/model-router/server-go/internal/ghcache"
 	"github.com/satomic/model-router/server-go/internal/omap"
 )
@@ -223,7 +230,21 @@ func Evaluate(ctx context.Context, cfg *config.RouterConfig, login string, isAdm
 		}
 	}
 
-	// 3. Teams and organizations, whose bindings only apply on proven membership. Every lookup
+	// 3. Built-in user groups. Local membership, so no lookup and no failure mode.
+	if table := policy.Map("user_groups"); table != nil {
+		member := map[string]bool{}
+		for _, name := range directory.GroupsOf(login) {
+			member[strings.ToLower(name)] = true
+		}
+		for _, name := range table.Keys() {
+			group := omap.AsString(table.Value(name))
+			if member[strings.ToLower(strings.TrimSpace(name))] && group != "" && cfg.HasModelGroup(group) {
+				contribute("user_group", name, group, "directory")
+			}
+		}
+	}
+
+	// 4. Teams and organizations, whose bindings only apply on proven membership. Every lookup
 	//    runs concurrently: they are independent, and a serial walk over a dozen scopes would
 	//    put a dozen round trips on the first uncached request of each user.
 	type binding struct{ name, group string }
@@ -243,6 +264,10 @@ func Evaluate(ctx context.Context, cfg *config.RouterConfig, login string, isAdm
 	}
 	orgs := collect("organizations")
 	teams := collect("teams")
+	if directory.IsUser(login) {
+		// Not a GitHub account: see the package docstring.
+		orgs, teams = nil, nil
+	}
 
 	type answer struct {
 		member bool

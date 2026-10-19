@@ -10,6 +10,7 @@ import {
 } from '../../api'
 import { useDialogs } from '../../components/Dialog'
 import { scopeCandidates, type KeyPolicyReason } from '../../keyeligibility'
+import { useDirectoryGroups } from '../users/useGroups'
 import type { AccessSectionProps } from './types'
 
 /** Rows rendered before the list has to be asked for in full. Same cap and same reason as the
@@ -28,7 +29,7 @@ interface Candidate {
   /** Whether this account may create an API key at all. `null` means the verdict is unknown. */
   eligible: boolean | null
   /** Why not, when it may not. A translation key under `access.keyscope.reason.`. */
-  reason?: KeyPolicyReason | 'userNotAllowed'
+  reason?: KeyPolicyReason | 'userNotAllowed' | 'groupNotAllowed'
 }
 
 /** Who may narrow an API key to specific models or interface types.
@@ -58,12 +59,14 @@ export default function KeyScopeSection({ auth, set, saved }: AccessSectionProps
   const users = policy.users ?? []
   const teams = policy.teams ?? []
   const orgs = policy.organizations ?? []
-  const nothingListed = !users.length && !teams.length && !orgs.length
+  const userGroups = policy.user_groups ?? []
+  const nothingListed = !users.length && !teams.length && !orgs.length && !userGroups.length
 
   // Discovery needs a saved token, so it reads the server's copy rather than the draft.
   const tokenSaved = Boolean((saved.key_policy?.github_token ?? '').trim())
   const structure = useStructure(tokenSaved)
   const knownUsers = useSignedInUsers()
+  const directory = useDirectoryGroups()
 
   // The draft, so the tables react to a key-policy edit made in the next tab over without a save
   // in between. The user level cannot follow: its verdict is a membership question only the server
@@ -88,6 +91,23 @@ export default function KeyScopeSection({ auth, set, saved }: AccessSectionProps
           })),
     [knownUsers.data],
   )
+
+  // A group is eligible when the key policy is off or lists it. Read from the draft, like the teams
+  // and organizations: whether a group may create keys is a config question, not a membership one.
+  const groupCandidates = useMemo<Candidate[] | null>(() => {
+    if (directory.groups === null) return null
+    const allowed = new Set((keyPolicy.user_groups ?? []).map((g) => g.toLowerCase()))
+    return directory.groups.map((g) => {
+      const eligible = !gated || allowed.has(g.name.toLowerCase())
+      return {
+        key: g.name,
+        name: g.name,
+        enterprise: t('access.keyscope.user_groups.source', { count: g.members.length }),
+        eligible,
+        reason: eligible ? undefined : ('groupNotAllowed' as const),
+      }
+    })
+  }, [directory.groups, keyPolicy, gated, t])
 
   const teamCandidates = useMemo<Candidate[] | null>(
     () =>
@@ -178,6 +198,17 @@ export default function KeyScopeSection({ auth, set, saved }: AccessSectionProps
       />
 
       <AllowList
+        level="user_groups"
+        selected={userGroups}
+        candidates={groupCandidates}
+        gated={gated}
+        loading={directory.groups === null && !directory.error}
+        error={directory.error}
+        onRefresh={directory.reload}
+        onChange={(next) => setPolicy({ user_groups: next })}
+      />
+
+      <AllowList
         level="teams"
         selected={teams}
         candidates={teamCandidates}
@@ -223,7 +254,7 @@ function AllowList({
   onRefresh,
   onChange,
 }: {
-  level: 'users' | 'teams' | 'organizations'
+  level: 'users' | 'user_groups' | 'teams' | 'organizations'
   selected: string[]
   candidates: Candidate[] | null
   /** Whether key creation is gated at all. With the gate open every account is eligible. */
@@ -310,7 +341,13 @@ function AllowList({
       message: t(`access.keyscope.${level}.prompt`),
       label: t(`access.keyscope.${level}.key`),
       placeholder:
-        level === 'teams' ? 'your-enterprise/14501973' : level === 'users' ? 'octocat' : 'your-org',
+        level === 'teams'
+          ? 'your-enterprise/14501973'
+          : level === 'users'
+            ? 'octocat'
+            : level === 'user_groups'
+              ? 'research'
+              : 'your-org',
       mono: true,
       validate: (v) => {
         if (isChosen(v)) return t('access.keyscope.exists', { name: v })

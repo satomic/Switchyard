@@ -41,10 +41,13 @@ model_policy:
   users: {}                    # {github-login: group}
   teams: {}                    # {'<enterprise slug>/<team id>': group}
   organizations: {}            # {organization login: group}
+  user_groups: {}              # {built-in user group: group}, since 2.5.0
 ```
 
-A caller's effective list is the **union** of the default group and every group bound to a user, team
-or organization they belong to. Union rather than precedence is the whole design:
+A caller's effective list is the **union** of the default group and every group bound to a user, user
+group, team or organization they belong to. User groups are this deployment's own (see
+[Built-in users and user groups](users-and-groups.md)); their membership is answered locally, so the
+binding needs no GitHub token. Union rather than precedence is the whole design:
 
 - **A binding can only ever widen a list, never narrow it.** So there is no ordering to configure, no
   precedence table to reason about, and adding a grant can never take a model away from somebody.

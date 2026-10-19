@@ -118,6 +118,14 @@ reveal whether the account has been renamed.
 A local administrator is a full administrator: it sees every user's traces and usage, and it is the
 identity that can delete traces.
 
+## Built-in users (no GitHub needed)
+
+Since 2.5.0, administrators can create **built-in users** on the Users page. They sign in on the same
+user name and password form as the local administrator, get API keys like a GitHub account, and can
+be put into **user groups** that every policy binds like a GitHub team. GitHub OAuth, the local
+administrator and built-in users all work side by side. See
+[Built-in users and user groups](users-and-groups.md).
+
 ## Permission matrix
 
 | Endpoint | Identity required |
@@ -132,7 +140,9 @@ identity that can delete traces.
 | `GET /v1/usage` | any signed-in user (their own data; an administrator sees everything and can drill down with `?user_id=`) |
 | `GET /v1/traces`, `/v1/traces/{id}`, `/v1/router/decisions` | any signed-in user (forcibly filtered to themselves; administrators unrestricted) |
 | `DELETE /v1/traces/{id}`, `DELETE /v1/traces?date=&user_id=` | administrators only — a user must not be able to erase the audit trail of their own calls |
-| `POST /v1/auth/local/login` | public (the local super administrator's sign-in) |
+| `POST /v1/auth/local/login` | public (the local super administrator's and built-in users' sign-in) |
+| `POST /v1/auth/password` | a built-in user, for their own password (reachable even while the forced password change is pending) |
+| `GET /v1/directory`, `POST/PATCH/DELETE /v1/directory/users…`, `POST/PATCH/DELETE /v1/directory/groups…` | administrators only |
 | `POST /v1/auth/local/password` | the local super administrator itself (reachable even while the forced password change is pending) |
 | `POST /v1/auth/local/enabled` | administrators only |
 | `GET/PUT /v1/config`, `GET /v1/access/token`, `POST /v1/access/verify-token`, `GET /v1/access/discover`, `GET /v1/access/cache`, `POST /v1/access/cache/refresh`, `GET /v1/credits`, `POST /v1/credits/refresh`, `POST /v1/credits/schedule/preview` | administrators only (otherwise 403) |

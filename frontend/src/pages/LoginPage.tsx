@@ -4,8 +4,9 @@ import { githubLoginUrl, localLogin, RETURN_KEY, type AuthStatus } from '../api'
 import LocalePicker from '../components/LocalePicker'
 
 /** Signed-out state: an Azure-style sign-in card carrying whichever doors are actually open --
- *  GitHub OAuth when it is configured, the local super administrator when it is enabled. Both may
- *  be present; with only one, the other's markup is not rendered at all. */
+ *  GitHub OAuth when it is configured, the username/password form when the local super
+ *  administrator is enabled or built-in users exist. Both may be present; with only one, the
+ *  other's markup is not rendered at all. */
 export default function LoginPage({
   error,
   status,
@@ -16,7 +17,12 @@ export default function LoginPage({
   onSignedIn: () => void
 }) {
   const { t } = useTranslation()
-  const [username, setUsername] = useState(status.local_admin_username || 'admin')
+  // Older servers report only the local administrator; built-in users arrived with 2.5.0.
+  const localOn = status.local_login_enabled ?? status.local_admin_enabled
+  const builtin = Boolean(status.builtin_users)
+  // Prefilled with the administrator's name only when that is the one account the form serves:
+  // with built-in users present, a prefilled "admin" would be wrong for nearly everyone.
+  const [username, setUsername] = useState(builtin ? '' : status.local_admin_username || 'admin')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [localError, setLocalError] = useState('')
@@ -37,10 +43,13 @@ export default function LoginPage({
       // App re-reads /v1/auth/status, which is what decides between the console and the
       // forced change-password form.
       onSignedIn()
-    } catch {
+    } catch (err) {
       // One message for a wrong username and a wrong password alike -- the server does not
-      // distinguish them and neither should the UI.
-      setLocalError(t('login.local.failed'))
+      // distinguish them and neither should the UI. A 403 is different: the server only sends
+      // it once the password checked out, for a built-in account that has been disabled.
+      setLocalError(
+        String(err).includes('HTTP 403') ? t('login.local.disabled') : t('login.local.failed'),
+      )
     } finally {
       setBusy(false)
     }
@@ -52,7 +61,7 @@ export default function LoginPage({
         <div className="auth-lang"><LocalePicker compact /></div>
         <div className="logo">◆</div>
         <h1>{t('login.title')}</h1>
-        <p className="lead">{t('login.lead')}</p>
+        <p className="lead">{status.configured ? t('login.lead') : t('login.leadLocal')}</p>
         {error && <div className="toast error">{t('login.failed', { error })}</div>}
         {status.configured && (
           <a
@@ -71,36 +80,40 @@ export default function LoginPage({
             {t('login.signInWithGitHub')}
           </a>
         )}
-        {status.configured && status.local_admin_enabled && (
+        {status.configured && localOn && (
           <div className="auth-or"><span>{t('login.local.or')}</span></div>
         )}
-        {status.local_admin_enabled && !localOpen && (
+        {localOn && !localOpen && (
           <button
             className="btn-alt"
             type="button"
             aria-expanded={false}
             onClick={() => {
               setLocalOpen(true)
-              // The username is prefilled, so the password is the field that actually wants the
-              // caret. The rAF waits for the input to exist before focusing it.
-              requestAnimationFrame(() => passwordRef.current?.focus())
+              // With the username prefilled the password is the field that wants the caret; with
+              // built-in users the username is empty and autoFocus on it takes over. The rAF
+              // waits for the input to exist before focusing it.
+              if (!builtin) requestAnimationFrame(() => passwordRef.current?.focus())
             }}
           >
             {t('login.local.reveal')}
           </button>
         )}
-        {status.local_admin_enabled && localOpen && (
+        {localOn && localOpen && (
           <form className="auth-form" onSubmit={submit}>
             <div className="field-name">{t('login.local.username')}</div>
             <input
               type="text"
+              name="username"
               autoComplete="username"
+              autoFocus={builtin}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
             <div className="field-name" style={{ marginTop: 8 }}>{t('login.local.password')}</div>
             <input
               ref={passwordRef}
+              name="password"
               type="password"
               autoComplete="current-password"
               value={password}
@@ -121,7 +134,9 @@ export default function LoginPage({
                 {t('login.local.hide')}
               </button>
             )}
-            <p className="faint" style={{ marginTop: 10 }}>{t('login.local.hint')}</p>
+            <p className="faint" style={{ marginTop: 10 }}>
+              {builtin ? t('login.local.hintBuiltin') : t('login.local.hint')}
+            </p>
           </form>
         )}
       </div>

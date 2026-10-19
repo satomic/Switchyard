@@ -12,7 +12,9 @@ import {
   type TokenOwner,
   type TokenStatus,
 } from '../../api'
+import { Link } from 'react-router-dom'
 import { formatDateTime } from '../../i18n/format'
+import { useDirectoryGroups } from '../users/useGroups'
 import type { AccessSectionProps } from './types'
 
 /** The enterprise key policy: a per-Enterprise master switch plus a second level of
@@ -135,7 +137,7 @@ export default function KeyPolicySection({ auth, set, saved, notify }: AccessSec
               <Trans i18nKey="access.policy.disabledNote" components={{ strong: <strong /> }} />
             )}
           </p>
-          {enabled && !tokenSaved && (
+          {enabled && !tokenSaved && !(policy.user_groups ?? []).length && (
             <p className="panel-note" style={{ marginTop: 10, marginBottom: 0 }}>
               <span className="badge error">{t('access.policy.missingTokenBadge')}</span>{' '}
               <Trans i18nKey="access.policy.missingTokenNote" components={{ strong: <strong /> }} />
@@ -143,6 +145,12 @@ export default function KeyPolicySection({ auth, set, saved, notify }: AccessSec
           )}
         </div>
       </div>
+
+      {/* -- Built-in user groups: checked first, and needs no token -- */}
+      <UserGroupAllowList
+        selected={policy.user_groups ?? []}
+        onChange={(next) => setPolicy({ user_groups: next })}
+      />
 
       {/* -- Enterprise administrator token -- */}
       <div className="panel">
@@ -592,6 +600,87 @@ function EnterpriseCard({
           )}
         </>
       )}
+    </div>
+  )
+}
+
+/** The user groups whose members may create API keys.
+ *
+ *  Evaluated before any enterprise rule and answered locally, so it works on a deployment with no
+ *  GitHub at all -- which is the case it exists for -- and costs no GitHub call where there is one.
+ *  An entry for a group that no longer exists stays listed so it can be cleared.
+ */
+function UserGroupAllowList({
+  selected,
+  onChange,
+}: {
+  selected: string[]
+  onChange: (next: string[]) => void
+}) {
+  const { t } = useTranslation()
+  const directory = useDirectoryGroups()
+  const chosen = new Set(selected.map((s) => s.toLowerCase()))
+  const known = new Set((directory.groups ?? []).map((g) => g.name.toLowerCase()))
+  const orphans = selected.filter((s) => directory.groups && !known.has(s.toLowerCase()))
+  const toggle = (name: string, on: boolean) =>
+    onChange(
+      on
+        ? chosen.has(name.toLowerCase())
+          ? selected
+          : [...selected, name]
+        : selected.filter((s) => s.toLowerCase() !== name.toLowerCase()),
+    )
+
+  return (
+    <div className="panel" data-panel="key-policy-user-groups">
+      <div className="panel-head">
+        {t('access.policy.userGroups.title')}
+        <span className="badge">{t('access.keyscope.allowedCount', { count: selected.length })}</span>
+        <span className="spacer" />
+        <button className="btn subtle sm" onClick={directory.reload}>
+          {t('common.refresh')}
+        </button>
+      </div>
+      <div className="panel-body">
+        <p className="panel-note" style={{ marginTop: 0 }}>
+          <Trans
+            i18nKey="access.policy.userGroups.lead"
+            components={{ strong: <strong />, a: <Link to="/users/groups" /> }}
+          />
+        </p>
+        {directory.error ? (
+          <p className="panel-note" style={{ marginBottom: 0 }}>
+            <span className="badge error">{t('common.error')}</span> {directory.error}
+          </p>
+        ) : !directory.groups ? (
+          <div className="empty">{t('common.loading')}</div>
+        ) : !directory.groups.length && !orphans.length ? (
+          <div className="empty">{t('access.policy.userGroups.none')}</div>
+        ) : (
+          <div className="tiles">
+            {directory.groups.map((g) => (
+              <label key={g.name} className="tile check" title={g.description || g.name}>
+                <input
+                  type="checkbox"
+                  checked={chosen.has(g.name.toLowerCase())}
+                  onChange={(e) => toggle(g.name, e.target.checked)}
+                />
+                <span className="mono truncate">{g.name}</span>
+                <span className="dim" style={{ marginLeft: 'auto', fontSize: 11.5 }}>
+                  {t('users.groups.memberCount', { count: g.members.length })}
+                </span>
+              </label>
+            ))}
+            {orphans.map((name) => (
+              <label key={name} className="tile check" title={t('policy.bindings.orphanHint')}>
+                <input type="checkbox" checked onChange={() => toggle(name, false)} />
+                <span className="mono truncate">{name}</span>
+                <span className="badge" style={{ marginLeft: 'auto' }}>{t('policy.bindings.orphan')}</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

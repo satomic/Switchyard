@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { changeLocalPassword, logout, type SessionUser } from '../api'
+import { changeLocalPassword, changeOwnPassword, logout, type SessionUser } from '../api'
 import LocalePicker from '../components/LocalePicker'
 
 /** The forced change-password form, rendered *before* the shell whenever the session still runs
- *  on the built-in default credential. The server refuses every endpoint but status / logout /
+ *  on the built-in default credential -- or, for a built-in user, on a password an administrator
+ *  chose for them. The server refuses every endpoint but status / logout /
  *  this one, so the client is mirroring a gate it does not enforce -- there is nothing to reach by
  *  editing the URL. */
 export default function ChangePasswordPage({
@@ -15,6 +16,9 @@ export default function ChangePasswordPage({
   onDone: () => void
 }) {
   const { t } = useTranslation()
+  // A built-in user changes only their password: their username is the login everything else keys
+  // on, so it is fixed. The local administrator may rename the account in the same step.
+  const builtin = Boolean(user.local_user)
   const [username, setUsername] = useState(user.login)
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
@@ -33,11 +37,15 @@ export default function ChangePasswordPage({
     setBusy(true)
     setError('')
     try {
-      await changeLocalPassword({
-        current_password: current,
-        new_password: next,
-        new_username: username.trim() || undefined,
-      })
+      if (builtin) {
+        await changeOwnPassword({ current_password: current, new_password: next })
+      } else {
+        await changeLocalPassword({
+          current_password: current,
+          new_password: next,
+          new_username: username.trim() || undefined,
+        })
+      }
       onDone()
     } catch (err) {
       setError(String(err))
@@ -51,11 +59,16 @@ export default function ChangePasswordPage({
       <div className="auth-card">
         <div className="auth-lang"><LocalePicker compact /></div>
         <div className="logo">◆</div>
-        <h1>{t('password.title')}</h1>
-        <p className="lead">{t('password.lead')}</p>
+        <h1>{builtin ? t('password.builtinTitle') : t('password.title')}</h1>
+        <p className="lead">{builtin ? t('password.builtinLead') : t('password.lead')}</p>
         <form className="auth-form" onSubmit={submit}>
           <div className="field-name">{t('password.username')}</div>
-          <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} />
+          <input
+            type="text"
+            value={username}
+            disabled={builtin}
+            onChange={(e) => setUsername(e.target.value)}
+          />
           <div className="field-name" style={{ marginTop: 8 }}>{t('password.current')}</div>
           <input
             type="password"
@@ -85,7 +98,7 @@ export default function ChangePasswordPage({
           </button>
         </form>
         <p className="faint" style={{ marginTop: 12 }}>
-          {t('password.recovery')}
+          {builtin ? t('password.builtinRecovery') : t('password.recovery')}
         </p>
         <button className="btn-link" style={{ marginTop: 8 }} onClick={() => logout().then(onDone)}>
           {t('shell.signOut')}

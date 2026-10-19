@@ -202,8 +202,8 @@ func (s *Store) DeleteSession(sid string) {
 // RefreshAdminFlags recomputes is_admin on existing sessions after the admin list changes,
 // so nobody has to sign in again.
 //
-// Local-administrator sessions are skipped: their authority comes from auth.local_admin
-// rather than admin_logins, so running them through this predicate would strip the flag.
+// Local-administrator and built-in user sessions are skipped: their authority comes from
+// auth.local_admin or the user directory rather than admin_logins, so running them through this predicate would strip the flag.
 func (s *Store) RefreshAdminFlags(isAdminLogin func(string) bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -211,7 +211,7 @@ func (s *Store) RefreshAdminFlags(isAdminLogin func(string) bool) {
 	changed := false
 	for _, sid := range s.sessions.Keys() {
 		session := s.sessions.Map(sid)
-		if session == nil || session.Bool("local_admin", false) {
+		if session == nil || session.Bool("local_admin", false) || session.Bool("local_user", false) {
 			continue
 		}
 		flag := isAdminLogin(session.Str("login"))
@@ -246,6 +246,45 @@ func (s *Store) RekeyLocalAdmin(sid, newLogin string) {
 		if current := s.sessions.Map(sid); current != nil && current.Str("login") != newLogin {
 			current.Set("login", newLogin)
 			current.Set("name", newLogin)
+			changed = true
+		}
+	}
+	if changed {
+		s.saveSessions()
+	}
+}
+
+// UpdateSession merges `fields` into one session, e.g. the new credential version after its own
+// user changed their password -- which must keep *this* session alive while ending the others.
+func (s *Store) UpdateSession(sid string, fields *omap.Map) {
+	if sid == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reloadSessionsIfChanged()
+	session := s.sessions.Map(sid)
+	if session == nil {
+		return
+	}
+	for _, field := range fields.Keys() {
+		session.Set(field, fields.Value(field))
+	}
+	s.saveSessions()
+}
+
+// DeleteSessionsOf ends every session of `login` opened through `flag` ("local_user" for a
+// built-in account). Used when the account is deleted, so a later account of the same name does
+// not inherit a session that happens to carry a matching credential version.
+func (s *Store) DeleteSessionsOf(login, flag string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reloadSessionsIfChanged()
+	changed := false
+	for _, sid := range s.sessions.Keys() {
+		session := s.sessions.Map(sid)
+		if session != nil && session.Bool(flag, false) && strings.EqualFold(session.Str("login"), login) {
+			s.sessions.Delete(sid)
 			changed = true
 		}
 	}
@@ -293,6 +332,8 @@ func (s *Store) RecordSignIn(user *omap.Map) {
 		// Which door they came through, so the admin list can distinguish the local
 		// administrator from a GitHub user of the same name.
 		kind = "local"
+	} else if user.Bool("local_user", false) {
+		kind = "builtin"
 	}
 	firstSeen := entry.Float("first_seen", 0)
 	if firstSeen == 0 {
@@ -471,6 +512,43 @@ func (s *Store) GetAPIKey(keyID string) *omap.Map {
 		return nil
 	}
 	return record.Clone()
+}
+
+// DeleteAPIKeysOf removes every key owned by `login` and returns how many went. A deleted
+// account's keys must stop working at once, and must not come back to life for a later account
+// that reuses the name.
+func (s *Store) DeleteAPIKeysOf(login string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reloadKeysIfChanged()
+	removed := 0
+	for _, id := range s.keys.Keys() {
+		record := s.keys.Map(id)
+		if record != nil && strings.EqualFold(record.Str("user_login"), login) {
+			s.keys.Delete(id)
+			removed++
+		}
+	}
+	if removed > 0 {
+		s.saveKeys()
+	}
+	return removed
+}
+
+// ForgetKnownUser drops `login` from the sign-in registry, so a deleted built-in account stops
+// being offered in the policy pickers.
+func (s *Store) ForgetKnownUser(login string) {
+	s.usersMu.Lock()
+	defer s.usersMu.Unlock()
+	data := jsonfile.Read(s.UsersPath)
+	k := strings.ToLower(strings.TrimSpace(login))
+	if !data.Has(k) {
+		return
+	}
+	data.Delete(k)
+	if err := jsonfile.Write(s.UsersPath, data); err != nil {
+		log.Printf("WARNING mr: could not update %s: %v", s.UsersPath, err)
+	}
 }
 
 func (s *Store) DeleteAPIKey(keyID string) bool {

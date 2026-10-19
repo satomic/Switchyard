@@ -208,17 +208,22 @@
     "policy": {
       "label": "Model policy",
       "title": "Model policy",
-      "subtitle": "Model groups, and which group each user, team and organization is granted — the models a caller may ask for"
+      "subtitle": "Model groups, and which group each user, user group, team and organization is granted — the models a caller may ask for"
     },
     "access": {
       "label": "Access control",
       "title": "Access control",
-      "subtitle": "Administrators and sign-in scope, the GitHub OAuth app, and who may create API keys — by Enterprise / Team / Organization"
+      "subtitle": "Administrators and sign-in scope, the GitHub OAuth app, and who may create API keys — by user group / Enterprise / Team / Organization"
     },
     "credits": {
       "label": "AI credits",
       "title": "Copilot AI credits",
       "subtitle": "The enterprise AI-credit pool, how often it is polled, and whether BYOK waits while credits remain"
+    },
+    "users": {
+      "label": "Users",
+      "title": "Users and groups",
+      "subtitle": "Built-in accounts that sign in with a user name and password, and user groups that every policy can bind"
     }
   },
   "credits": {
@@ -374,7 +379,8 @@
     "bindingCount_other": "{{count}} bindings",
     "kind": {
       "github": "GitHub",
-      "local": "Local"
+      "local": "Local",
+      "builtin": "Built-in"
     },
     "table": {
       "login": "Login",
@@ -432,6 +438,14 @@
       "teamNotAllowed": "This team is not allowed to create API keys under the key policy.",
       "orphan": "not discovered",
       "orphanHint": "Bound in config.yaml but absent from the discovered structure — entered by hand, or from an enterprise this token can no longer read. Still enforced."
+    },
+    "user_groups": {
+      "title": "User group bindings",
+      "lead": "Built-in user groups from the <a>Users page</a>. Members of a bound group get its models. Membership is answered locally, so this works without any GitHub token.",
+      "none": "No user groups exist yet. Create them on the Users page.",
+      "key": "User group",
+      "members": "Members",
+      "empty": "(no members)"
     }
   },
   "shell": {
@@ -454,7 +468,9 @@
     "update": {
       "available": "Update {{version}}",
       "title": "Version {{version}} is available. Open the release notes."
-    }
+    },
+    "builtinAccount": "Built-in account",
+    "userGroup": "User group"
   },
   "login": {
     "title": "Model Router console",
@@ -469,8 +485,11 @@
       "password": "Password",
       "submit": "Sign in",
       "hint": "The local administrator account is for the case where github.com cannot be reached. It is configured in config.yaml and is not a GitHub account.",
-      "failed": "That user name and password combination was not accepted."
-    }
+      "failed": "That user name and password combination was not accepted.",
+      "hintBuiltin": "Built-in accounts are created by an administrator on the Users page. They are not GitHub accounts.",
+      "disabled": "This account has been disabled. Please contact your administrator."
+    },
+    "leadLocal": "Sign in with your user name and password. Once signed in you can create API keys and review your own calls and usage; administrators can also manage users, the routing strategy and the backend connections."
   },
   "setup": {
     "blocked": {
@@ -497,7 +516,14 @@
     "tooShort": "The new password must be at least 8 characters.",
     "mismatch": "The two new passwords do not match.",
     "submit": "Change the password and continue",
-    "recovery": "Locked out? Clear password_hash and password_salt under auth.local_admin in config.yaml and the built-in default password applies again."
+    "recovery": "Locked out? Clear password_hash and password_salt under auth.local_admin in config.yaml and the built-in default password applies again.",
+    "builtinTitle": "Choose your own password",
+    "builtinLead": "Your account was set up with a password an administrator chose. Pick your own to continue.",
+    "builtinRecovery": "Forgot your password? Ask an administrator to reset it on the Users page.",
+    "changeTitle": "Change password",
+    "changeSubmit": "Change password",
+    "changeLead": "Your other signed-in sessions end when the password changes. This one stays signed in.",
+    "changedToast": "Password changed."
   },
   "usage": {
     "allUsers": "All users",
@@ -557,7 +583,7 @@
       "policy-disabled": "No model policy is in force on this router, so <strong>every model in the catalog</strong> is available to you.",
       "administrator": "You are an <strong>administrator</strong>. A model policy is a distribution control rather than a privilege boundary, so it does not apply to you and the whole catalog stays available.",
       "no-binding": "The model policy is switched on, but <strong>nothing is bound to your account</strong> — no default group, and no team or organization grant that reaches you. An unbound account is left unrestricted rather than locked out, so the full catalog is available.",
-      "union": "Your list is the <strong>union</strong> of every model group granted to you, through your account, your teams and your organizations. A grant can only ever add models, never take them away.",
+      "union": "Your list is the <strong>union</strong> of every model group granted to you, through your account, your user groups, your teams and your organizations. A grant can only ever add models, never take them away.",
       "empty-group": "Every group granted to you is <strong>empty</strong>, so you currently have no models at all. Requests are refused with a <code>403</code> until an administrator binds a non-empty group to your account, a team or an organization."
     },
     "blockedBadge": "no models",
@@ -575,7 +601,8 @@
       "default": "Default group",
       "user": "Account",
       "team": "Team",
-      "organization": "Organization"
+      "organization": "Organization",
+      "user_group": "User group"
     },
     "table": {
       "model": "Model",
@@ -660,7 +687,7 @@
       "grantedVia": "Granted via",
       "enterpriseParenOpen": " (enterprise ",
       "enterpriseParenClose": ")",
-      "deniedExplanation": "<strong>What this means</strong>: you can sign in and read this page, but you cannot create an API key; without a key you cannot reach this service's <code>/v1/chat/completions</code> through GitHub Copilot BYOK. To get access, send the evidence below to an administrator and ask them to allow your organization or enterprise team under \"Access control → Key policy\".",
+      "deniedExplanation": "<strong>What this means</strong>: you can sign in and read this page, but you cannot create an API key; without a key you cannot reach this service's <code>/v1/chat/completions</code> through GitHub Copilot BYOK. To get access, send the evidence below to an administrator and ask them to add you to an allowed user group, or to allow your organization or enterprise team, under \"Access control → Key policy\".",
       "table": {
         "enterprise": "Enterprise",
         "scope": "Scope",
@@ -674,7 +701,9 @@
         "probe": "probe",
         "probeHint": "answered from a remembered live probe result",
         "live": "live",
-        "liveHint": "answered by calling GitHub for this request — this row still costs a round trip per check"
+        "liveHint": "answered by calling GitHub for this request — this row still costs a round trip per check",
+        "directory": "local",
+        "directoryHint": "answered from this service's own user groups — no GitHub call was made"
       },
       "reason": {
         "admin": "You are an administrator of this service and can create API keys directly.",
@@ -685,7 +714,8 @@
         "memberTeam": "You are a member of enterprise team {{name}} (enterprise {{enterprise}}), so you can create API keys.",
         "memberEnterprise": "You are a member of enterprise {{name}}, so you can create API keys.",
         "member": "You are a member of {{name}} (enterprise {{enterprise}}), so you can create API keys.",
-        "noMembership": "You do not belong to any allowed enterprise, enterprise team or organization, so you cannot create an API key and therefore cannot use BYOK. To request access, ask your administrator to add your organization to the allow list."
+        "noMembership": "You do not belong to any allowed user group, enterprise, enterprise team or organization, so you cannot create an API key and therefore cannot use BYOK. To request access, ask your administrator to add you to an allowed user group or to add your organization to the allow list.",
+        "memberUserGroup": "You are a member of the user group {{name}}, so you can create API keys."
       },
       "scanned": "(probed {{count}})",
       "scannedTruncated": "(probed {{count}}, truncated)",
@@ -728,14 +758,15 @@
       "verdict": {
         "admin": "Administrators may set a scope on any key.",
         "off": "Narrowing an API key is not enabled on this deployment, so every key covers all models and all connection types. Please contact your administrator.",
-        "nobodyAllowed": "Narrowing an API key is enabled, but the administrator has not allowed any user, team or organization yet, so every key covers all models and all connection types. Please contact your administrator.",
+        "nobodyAllowed": "Narrowing an API key is enabled, but the administrator has not allowed any user, user group, team or organization yet, so every key covers all models and all connection types. Please contact your administrator.",
         "levelsFailed": "You are not allowed to narrow an API key: the administrator requires a match at the {{levels}} level, and you do not have one. Every key you create covers all models and all connection types. Please contact your administrator.",
         "allowed": "You may restrict an API key to specific models or connection types."
       },
       "levelName": {
         "user": "user",
         "team": "team",
-        "organization": "organization"
+        "organization": "organization",
+        "user_group": "user group"
       }
     }
   },
@@ -757,7 +788,7 @@
       },
       "policy": {
         "label": "Key policy",
-        "hint": "who may create keys, by Enterprise / Team / Organization"
+        "hint": "who may create keys, by user group / Enterprise / Team / Organization"
       },
       "keyscope": {
         "label": "Key scope",
@@ -769,7 +800,8 @@
       "team": "enterprise team",
       "enterprise": "direct enterprise member",
       "org-scan": "organization bulk probe",
-      "admin": "service administrator"
+      "admin": "service administrator",
+      "user_group": "user group"
     },
     "admins": {
       "title": "Administrators",
@@ -858,11 +890,11 @@
       "title": "Key creation policy",
       "enabled": "enabled",
       "disabled": "not enabled",
-      "toggle": "Only allow users in the listed enterprises / organizations to create API keys",
-      "enabledNote": "Enabled: when a standard user creates a key, their enterprise and organization membership is checked against GitHub live, and a user who belongs to no allowed scope is rejected (403) and therefore cannot use BYOK. Administrators are exempt.",
+      "toggle": "Only allow users in the listed user groups / enterprises / organizations to create API keys",
+      "enabledNote": "Enabled: when a standard user creates a key, their user groups are checked first, then their enterprise and organization membership against GitHub, and a user who belongs to no allowed scope is rejected (403) and therefore cannot use BYOK. Administrators are exempt.",
       "disabledNote": "Not enabled: <strong>any GitHub account that can sign in can create an API key and use BYOK</strong>. If \"Allow any GitHub account to sign in\" above is also on, that means the whole of GitHub.",
       "missingTokenBadge": "token missing",
-      "missingTokenNote": "The policy is enabled but no Enterprise token is configured, so the service cannot verify membership and <strong>currently rejects every key creation request from a non-administrator</strong>. Fill in the token below.",
+      "missingTokenNote": "The policy is enabled but no Enterprise token is configured and no user group is allowed, so the service cannot verify membership and <strong>currently rejects every key creation request from a non-administrator</strong>. Allow a user group below, or fill in the token.",
       "tokenTitle": "GitHub Enterprise administrator token",
       "tokenOk": "valid",
       "tokenBad": "problem",
@@ -906,18 +938,23 @@
       "allowedTeamsHint": "membership is decided by the team's numeric id (GitHub accepts nothing else); the team name is what is shown here and to users",
       "teamListUnavailable": "team list unavailable",
       "teamListUnavailableNote": "— this enterprise can only be authorized by organization.",
-      "noTeams": "This enterprise has no enterprise teams."
+      "noTeams": "This enterprise has no enterprise teams.",
+      "userGroups": {
+        "title": "Allowed user groups",
+        "lead": "Members of the ticked groups may create API keys. Groups come from the <a>Users page</a> and may hold built-in users and GitHub accounts. They are checked before any enterprise rule and need no GitHub token.",
+        "none": "No user groups exist yet. Create them on the Users page."
+      }
     },
     "keyscope": {
       "title": "Narrowing an API key",
       "on": "Allowed for the accounts below",
       "off": "Nobody",
-      "toggle": "Let the users, teams and organizations listed below restrict their API keys",
+      "toggle": "Let the users, user groups, teams and organizations listed below restrict their API keys",
       "onNote": "The lists below decide who may do it. Everybody else creates keys that cover <strong>all models and all connection types</strong>.",
       "offNote": "Nobody may restrict a key. Every key covers <strong>all models and all connection types</strong>, which is what every key did before scopes existed, so leaving this off takes nothing away.",
       "why": "A key restricted to one expensive model has <strong>pinned every request on that key to it</strong>, so routing cheap work to a cheap model stops applying. That is the cost this control exists to prevent.",
       "emptyBadge": "Grants nobody",
-      "empty": "Switched on with all three lists empty, so nobody may restrict a key yet. Add at least one user, team or organization.",
+      "empty": "Switched on with every list empty, so nobody may restrict a key yet. Add at least one user, user group, team or organization.",
       "ruleAnd": "Every list you fill in <strong>must</strong> match. Fill in two, and both have to match.",
       "ruleAbstain": "A list left empty is <strong>not consulted</strong>, so listing one organization on its own allows everybody in it.",
       "ruleOr": "Within one list, a single match is enough.",
@@ -955,7 +992,8 @@
         "orgNotAllowed": "This organization is not allowed to create API keys under the key policy.",
         "teamNotAllowed": "This team is not allowed to create API keys under the key policy.",
         "userNotAllowed": "This account may not create an API key under the key policy, so there is no key of theirs to narrow.",
-        "unknown": "Whether this account may create an API key could not be established, so it is offered rather than hidden."
+        "unknown": "Whether this account may create an API key could not be established, so it is offered rather than hidden.",
+        "groupNotAllowed": "This user group is not allowed to create API keys under the key policy."
       },
       "table": {
         "source": "Source",
@@ -991,6 +1029,18 @@
         "addTitle": "Add an organization",
         "prompt": "The organization login.",
         "noneEligible": "No organization is allowed to create API keys under the key policy, so there is nothing to allow here. Allow one under Access control → Key policy, or add an organization by hand."
+      },
+      "user_groups": {
+        "title": "User groups",
+        "lead": "Built-in user groups from the Users page. Tick the groups whose members may restrict their own keys.",
+        "key": "User group",
+        "none": "No user groups exist yet. Create them on the Users page.",
+        "search": "Filter groups",
+        "addTitle": "Add a user group",
+        "prompt": "The name of a user group whose members may restrict their keys.",
+        "noneEligible": "No user group is allowed to create API keys under the key policy, so there is nobody to allow here. Allow one under Access control → Key policy.",
+        "source_one": "user group · {{count}} member",
+        "source_other": "user group · {{count}} members"
       }
     }
   },
@@ -1444,6 +1494,136 @@
       "defaultNote": "used when nothing above decided",
       "unused": "not used",
       "noModel": "not set"
+    }
+  },
+  "users": {
+    "section": {
+      "users": {
+        "label": "Users",
+        "hint": "built-in accounts that sign in with a user name and password"
+      },
+      "groups": {
+        "label": "User groups",
+        "hint": "named sets of built-in users and GitHub accounts, bound like a team on every policy"
+      }
+    },
+    "noMatch": "Nothing matches \"{{query}}\".",
+    "kind": {
+      "builtin": "built-in",
+      "github": "GitHub"
+    },
+    "users": {
+      "title": "Built-in users",
+      "count_one": "{{count}} user",
+      "count_other": "{{count}} users",
+      "search": "Filter users",
+      "new": "New user",
+      "lead": "Accounts that live in this service rather than on GitHub. They sign in on the sign-in page with <strong>their user name and password</strong>, and get API keys, traces and usage like any GitHub account. Changes here take effect immediately; there is nothing to save.",
+      "none": "No built-in users yet. Create one to let people sign in without GitHub.",
+      "table": {
+        "user": "User",
+        "role": "Role",
+        "status": "Status",
+        "groups": "Groups",
+        "keys": "API keys",
+        "lastSeen": "Last sign-in"
+      },
+      "statusActive": "active",
+      "statusDisabled": "disabled",
+      "mustChange": "must change password",
+      "mustChangeHint": "The user has to choose a new password at the next sign-in before they can do anything else.",
+      "neverSignedIn": "never",
+      "edit": "Edit",
+      "resetPassword": "Reset password",
+      "enable": "Enable",
+      "disable": "Disable",
+      "notYourself": "You cannot do this to your own account.",
+      "disableTitle": "Disable {{name}}?",
+      "disableMessage_one": "They are signed out at once, cannot sign in, and their {{count}} API key stops working until the account is enabled again.",
+      "disableMessage_other": "They are signed out at once, cannot sign in, and their {{count}} API keys stop working until the account is enabled again.",
+      "disabledToast": "{{name}} is disabled.",
+      "enabledToast": "{{name}} is enabled again.",
+      "deleteTitle": "Delete {{name}}?",
+      "deleteMessage_one": "<strong>{{name}}</strong> is removed from every group, signed out, and their {{count}} API key is deleted. Their traces stay. This cannot be undone.",
+      "deleteMessage_other": "<strong>{{name}}</strong> is removed from every group, signed out, and their {{count}} API keys are deleted. Their traces stay. This cannot be undone.",
+      "deletedToast": "{{name}} was deleted.",
+      "createdToast": "{{name}} was created. Give them their user name and the password you chose.",
+      "savedToast": "{{name}} was saved.",
+      "resetToast": "The password of {{name}} was reset and their sessions were signed out.",
+      "howTitle": "How built-in users work",
+      "howSignIn": "<strong>Signing in.</strong> The sign-in page offers a user name and password form whenever at least one built-in user is enabled, alongside GitHub when that is configured too.",
+      "howPolicies": "<strong>Permissions.</strong> A built-in user is bound like a GitHub login: by name on Model policy and Key scope, and through their user groups on Model policy, Key policy and Key scope. GitHub organizations and teams never apply to them.",
+      "howNames": "<strong>Names.</strong> A user name cannot be one that already means somebody else: the local administrator, a GitHub administrator in admin_logins, or a GitHub account that has signed in. A GitHub account is likewise refused sign-in under a built-in user's name.",
+      "howDisable": "<strong>Disabling and resets.</strong> Disabling an account stops its console sessions and its API keys at once. Resetting a password signs out every session of the account."
+    },
+    "form": {
+      "createTitle": "New built-in user",
+      "editTitle": "Edit {{name}}",
+      "create": "Create",
+      "save": "Save",
+      "username": "User name",
+      "usernameHint": "letters, digits, '.', '_' or '-'; cannot be changed later",
+      "usernameFixed": "cannot be changed",
+      "usernameInvalid": "Use 1–64 letters, digits, '.', '_' or '-', starting with a letter or digit.",
+      "displayName": "Display name",
+      "email": "Email",
+      "emailHint": "optional, for your records",
+      "password": "Password",
+      "passwordHint": "at least {{count}} characters",
+      "confirm": "Confirm password",
+      "isAdmin": "Administrator",
+      "isAdminHint": "Administrators manage this service: routing, connections, policies, users, and every user's traces.",
+      "isAdminSelf": "This is your own account. You cannot remove your own administrator role.",
+      "mustChange": "Require a new password at the next sign-in",
+      "mustChangeHint": "Recommended whenever you chose the password: the user then replaces it with one only they know.",
+      "groups": "User groups",
+      "noGroups": "No user groups exist yet. Create them on the User groups tab."
+    },
+    "reset": {
+      "title": "Reset the password of {{name}}",
+      "submit": "Reset password",
+      "lead": "Every session of this account is signed out. Give the user the new password through a channel you trust."
+    },
+    "groups": {
+      "title": "User groups",
+      "count_one": "{{count}} group",
+      "count_other": "{{count}} groups",
+      "new": "New group",
+      "lead": "A user group is a named set of logins: <strong>built-in users and GitHub accounts alike</strong>. Each policy can bind a group the way it binds a GitHub team, and membership is answered here, so it needs no GitHub token.",
+      "none": "No user groups yet.",
+      "memberCount_one": "{{count}} member",
+      "memberCount_other": "{{count}} members",
+      "empty": "No members yet.",
+      "usedModel": "model group: {{group}}",
+      "usedModelHint": "Bound on Model policy",
+      "usedKeyPolicy": "may create keys",
+      "usedKeyScope": "may narrow keys",
+      "deleteTitle": "Delete the group {{name}}?",
+      "deleteMessage": "Its members stay; only the group goes.",
+      "deleteUsed": "Its members stay; only the group goes. The group is also removed from Model policy, Key policy and Key scope, so whatever it granted its members stops applying.",
+      "deletedToast": "The group {{name}} was deleted.",
+      "savedToast": "The group {{name}} was saved.",
+      "createTitle": "New user group",
+      "editTitle": "Edit the group {{name}}",
+      "name": "Group name",
+      "nameHint": "letters, digits, '.', '_' or '-'; cannot be changed later",
+      "nameInvalid": "Use 1–64 letters, digits, '.', '_' or '-', starting with a letter or digit.",
+      "description": "Description",
+      "builtinMembers": "Built-in users",
+      "selected_one": "{{count}} member selected",
+      "selected_other": "{{count}} members selected",
+      "noBuiltin": "No built-in users yet.",
+      "githubMembers": "GitHub accounts",
+      "githubMembersHint": "accounts that have signed in; type a login below to add one that has not",
+      "noGithub": "No GitHub account has signed in yet.",
+      "typePlaceholder": "GitHub login, e.g. octocat",
+      "add": "Add",
+      "badLogin": "\"{{name}}\" is not a valid login.",
+      "whereTitle": "Where groups are used",
+      "whereModels": "<strong><a>Model policy</a></strong>: bind a model group to a user group; its members get those models, in union with every other grant.",
+      "whereKeys": "<strong><a>Access control → Key policy</a></strong>: members of an allowed group may create API keys. Checked first, with no GitHub token needed.",
+      "whereScope": "<strong><a>Access control → Key scope</a></strong>: the user group level of who may narrow a key.",
+      "whereSignIn": "<strong>GitHub sign-in</strong>: with <code>allow_any_github_user</code> off, a GitHub account that is a member of any user group may still sign in."
     }
   }
 }

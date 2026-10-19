@@ -249,6 +249,9 @@ export interface EnterpriseRule {
 
 export interface KeyPolicy {
   enabled?: boolean
+  /** Built-in user groups whose members may create keys. Checked before any enterprise rule and
+   *  needs no GitHub token, which is what makes the policy usable without GitHub. */
+  user_groups?: string[]
   github_token?: string
   /** How often the local copy of the enterprise structure and member lists is refreshed. */
   cache_refresh_seconds?: number
@@ -266,6 +269,8 @@ export interface KeyScopePolicy {
   /** '<enterprise slug>/<team id>', the form the backend's GitHub cache needs. */
   teams?: string[]
   organizations?: string[]
+  /** Built-in user groups (the Users page). */
+  user_groups?: string[]
 }
 
 /** The local super administrator. Note there is no plaintext password here and no hash either:
@@ -302,6 +307,8 @@ export interface ModelPolicy {
   users?: Record<string, string>
   teams?: Record<string, string>
   organizations?: Record<string, string>
+  /** Built-in user group name -> model group. */
+  user_groups?: Record<string, string>
 }
 
 /** `rule-then-ai` runs both: the rules decide when one matches, and only an unmatched request
@@ -381,6 +388,10 @@ export interface SessionUser {
   is_admin: boolean
   /** true when signed in through the local super-administrator account rather than GitHub. */
   local_admin?: boolean
+  /** true when signed in as a built-in user (the Users page) rather than GitHub. */
+  local_user?: boolean
+  /** The built-in user groups this account belongs to. */
+  groups?: string[]
   /** true while the built-in default password is still in force. The server refuses every
    *  endpoint except status / logout / change-password until it is changed, so the console
    *  mirrors that by showing nothing but the change-password form. */
@@ -397,6 +408,11 @@ export interface AuthStatus {
    *  github.com cannot be reached. */
   local_admin_enabled: boolean
   local_admin_username: string
+  /** true when the username/password form has anybody behind it: the local administrator or at
+   *  least one enabled built-in user. Absent on servers older than 2.5.0. */
+  local_login_enabled?: boolean
+  /** true when at least one enabled built-in user exists. */
+  builtin_users?: boolean
 }
 
 /** What one key may reach, inside what its owner may reach. 'all' is the default; the other
@@ -562,6 +578,15 @@ export async function changeLocalPassword(payload: {
   new_username?: string
 }): Promise<{ ok: boolean; username: string }> {
   return json('/v1/auth/local/password', jsonBody('POST', payload))
+}
+
+/** A built-in user changes their own password. Every other session of theirs ends; this one
+ *  carries on. */
+export async function changeOwnPassword(payload: {
+  current_password: string
+  new_password: string
+}): Promise<{ ok: boolean }> {
+  return json('/v1/auth/password', jsonBody('POST', payload))
 }
 
 export async function setLocalAdminEnabled(enabled: boolean): Promise<{ ok: boolean; enabled: boolean }> {
@@ -851,7 +876,7 @@ export interface AccessCheck {
 /** One level of the key-scope decision. `configured` false means the administrator left that
  *  level empty, so it abstained rather than passing on merit. */
 export interface KeyScopeLevel {
-  level: 'user' | 'team' | 'organization'
+  level: 'user' | 'user_group' | 'team' | 'organization'
   configured: boolean
   passed: boolean
   matched: string
@@ -1033,10 +1058,11 @@ export interface KnownUser {
   login: string
   name: string
   avatar_url?: string | null
-  /** 'github' or 'local' (the local super administrator). */
+  /** 'github', 'local' (the local super administrator) or 'builtin' (a built-in user). */
   kind: string
-  first_seen: number
-  last_seen: number
+  /** null for a built-in user who has not signed in yet. */
+  first_seen: number | null
+  last_seen: number | null
   sign_ins: number
   /** The group bound to this login in model_policy.users, '' when none. */
   model_group: string
@@ -1168,3 +1194,100 @@ export async function sendChat(opts: {
  *  are asked when ai_router.decision_instructions is empty. */
 export const DEFAULT_DECISION_INSTRUCTIONS =
   'Which backend model should handle this request? Pick the option whose description best matches what the request needs.'
+
+// ── Built-in users and user groups ───────────────────────────────
+export interface DirectoryUser {
+  username: string
+  display_name: string
+  email: string
+  is_admin: boolean
+  disabled: boolean
+  must_change_password: boolean
+  created_at: number
+  updated_at: number
+  password_changed_at: number
+  groups: string[]
+  key_count: number
+  last_seen: number | null
+  sign_ins: number
+}
+
+export interface DirectoryGroupMember {
+  login: string
+  /** 'builtin' for a built-in user, 'github' for anything else (a GitHub login). */
+  kind: 'builtin' | 'github'
+  name: string
+}
+
+export interface DirectoryGroup {
+  name: string
+  description: string
+  members: DirectoryGroupMember[]
+  created_at: number
+  updated_at: number
+  /** Where the saved policies use this group. */
+  references: { model_group: string; key_policy: boolean; key_scope: boolean }
+}
+
+export interface Directory {
+  users: DirectoryUser[]
+  groups: DirectoryGroup[]
+  /** GitHub accounts that have signed in, offered as group members. */
+  github_users: { login: string; name: string; avatar_url?: string | null; last_seen: number }[]
+  oauth_configured: boolean
+  local_admin_username: string
+}
+
+export async function getDirectory(): Promise<Directory> {
+  return json('/v1/directory')
+}
+
+export async function createDirectoryUser(payload: {
+  username: string
+  display_name?: string
+  email?: string
+  password: string
+  is_admin?: boolean
+  must_change_password?: boolean
+  groups?: string[]
+}): Promise<DirectoryUser> {
+  return json('/v1/directory/users', jsonBody('POST', payload))
+}
+
+export async function updateDirectoryUser(
+  username: string,
+  patch: Partial<{
+    display_name: string
+    email: string
+    is_admin: boolean
+    disabled: boolean
+    must_change_password: boolean
+    password: string
+    groups: string[]
+  }>,
+): Promise<DirectoryUser> {
+  return json(`/v1/directory/users/${encodeURIComponent(username)}`, jsonBody('PATCH', patch))
+}
+
+export async function deleteDirectoryUser(username: string): Promise<{ ok: boolean; deleted_keys: number }> {
+  return json(`/v1/directory/users/${encodeURIComponent(username)}`, { method: 'DELETE' })
+}
+
+export async function createDirectoryGroup(payload: {
+  name: string
+  description?: string
+  members?: string[]
+}): Promise<{ ok: boolean; name: string }> {
+  return json('/v1/directory/groups', jsonBody('POST', payload))
+}
+
+export async function updateDirectoryGroup(
+  name: string,
+  patch: { description?: string; members?: string[] },
+): Promise<{ ok: boolean; name: string }> {
+  return json(`/v1/directory/groups/${encodeURIComponent(name)}`, jsonBody('PATCH', patch))
+}
+
+export async function deleteDirectoryGroup(name: string): Promise<{ ok: boolean }> {
+  return json(`/v1/directory/groups/${encodeURIComponent(name)}`, { method: 'DELETE' })
+}

@@ -34,6 +34,13 @@ auth:
                                         # alike
 ```
 
+**User groups (since 2.5.0).** `key_policy.user_groups: [group, ...]` lists built-in user groups
+whose members may create keys. They are checked first, answered locally, and need no token, so a
+deployment without GitHub can still gate key creation. A group can hold GitHub logins too, which is
+a way to allow a set of GitHub users without an enterprise token. With groups listed, the "enabled
+but no token" state below no longer denies everyone: members of a listed group still pass. See
+[Built-in users and user groups](users-and-groups.md).
+
 The rules:
 
 - **Administrators are exempt**, so a misconfigured policy cannot lock you out of your own service.
@@ -192,6 +199,7 @@ auth:
     users: [alice, bob]           # GitHub logins
     teams: ['my-enterprise/14501973']   # '<enterprise slug>/<team id>'
     organizations: [org-a]        # organization logins
+    user_groups: [research]       # built-in user groups (since 2.5.0), a fourth level
 ```
 
 The rules, which are also printed on the page itself because one of them is not guessable from

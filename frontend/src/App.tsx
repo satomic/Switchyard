@@ -24,6 +24,7 @@ import SetupPage from './pages/SetupPage'
 import TracesPage from './pages/TracesPage'
 import UsagePage from './pages/UsagePage'
 import TopologyPage from './pages/TopologyPage'
+import UsersPage from './pages/UsersPage'
 import CreditsPage from './pages/CreditsPage'
 
 type Page =
@@ -37,6 +38,7 @@ type Page =
   | 'playground'
   | 'topology'
   | 'credits'
+  | 'users'
 type Theme = 'dark' | 'light'
 
 /** The page '/' lands on. Also the fallback used while <Navigate> is settling. */
@@ -68,6 +70,9 @@ const NAV: {
   // different config keys.
   { key: 'policy', icon: '◧', group: 'manage', admin: true },
   { key: 'access', icon: '⛨', group: 'manage', admin: true },
+  // Built-in accounts and user groups: the identity source for teams that do not use GitHub, and
+  // a group mechanism that works for GitHub accounts without an enterprise token.
+  { key: 'users', icon: '☺', group: 'manage', admin: true },
   // Copilot's own budget, not this router's: whether BYOK should wait while the pool has credits.
   { key: 'credits', icon: '◍', group: 'manage', admin: true },
 ]
@@ -175,7 +180,7 @@ export default function App() {
   // The wizard only preempts everything when there is **no** way in at all. With the local
   // super administrator enabled, an unreachable github.com must land on the sign-in card
   // instead of a wizard demanding OAuth credentials.
-  if (!status.configured && !status.local_admin_enabled) {
+  if (!status.configured && !(status.local_login_enabled ?? status.local_admin_enabled)) {
     return <SetupPage status={status} onDone={refreshStatus} />
   }
   if (!status.authenticated || !status.user) {
@@ -265,6 +270,8 @@ export default function App() {
         <Route path="/credits" element={admin(<CreditsPage />)} />
         <Route path="/access" element={admin(<Navigate to="/access/policy" replace />)} />
         <Route path="/access/:section" element={admin(<AccessPage />)} />
+        <Route path="/users" element={admin(<Navigate to="/users/users" replace />)} />
+        <Route path="/users/:section" element={admin(<UsersPage user={user} />)} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Shell>

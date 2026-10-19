@@ -3,7 +3,8 @@
 //
 // Authentication model:
 //   - /v1/chat/completions, /v1/messages -> API key required (Authorization: Bearer mr_...)
-//   - /v1/config                         -> administrators only (GitHub OAuth session)
+//   - /v1/config, /v1/directory          -> administrators only (a GitHub, local administrator or
+//     built-in user session)
 //   - /v1/keys, /v1/usage, /v1/traces    -> signed-in users; non-admins see only their own data
 //   - /v1/auth/*, /healthz, the console  -> public (the console itself is served from /, and
 //     every non-API path falls through to it)
@@ -24,6 +25,7 @@ import (
 	"github.com/satomic/model-router/server-go/internal/auth"
 	"github.com/satomic/model-router/server-go/internal/authstore"
 	"github.com/satomic/model-router/server-go/internal/config"
+	"github.com/satomic/model-router/server-go/internal/directory"
 	"github.com/satomic/model-router/server-go/internal/omap"
 	"github.com/satomic/model-router/server-go/internal/sessions"
 	"github.com/satomic/model-router/server-go/internal/traces"
@@ -173,7 +175,17 @@ func (a *App) admin(r *http.Request) (*omap.Map, error) {
 }
 
 func (a *App) apiKey(r *http.Request) (*omap.Map, error) {
-	return auth.RequireAPIKey(r, a.AuthStore)
+	key, err := auth.RequireAPIKey(r, a.AuthStore)
+	if err != nil {
+		return nil, err
+	}
+	// A key is only as good as its owner's account. Disabling a built-in user has to stop their
+	// keys at once, not merely their console sessions -- otherwise disabling an account would
+	// leave every client it configured still working.
+	if user := directory.LookupUser(key.Str("user_login")); user != nil && user.Disabled {
+		return nil, errorf(http.StatusForbidden, "the account that owns this API key is disabled")
+	}
+	return key, nil
 }
 
 // isAdminLogin reports whether this login is an administrator, from either identity source.
@@ -181,7 +193,13 @@ func (a *App) apiKey(r *http.Request) (*omap.Map, error) {
 // An API key record carries no admin flag -- it names its owner and nothing else -- so a call
 // authenticated by a key has to ask the configuration, which is also what makes an admin list
 // edit take effect on the very next request rather than when the key is next recreated.
+//
+// A built-in user's authority comes from the directory alone. Consulting admin_logins for them
+// would let a GitHub administrator's login, reused as a built-in username, inherit the role.
 func (a *App) isAdminLogin(login string) bool {
+	if user := directory.LookupUser(login); user != nil {
+		return user.IsAdmin && !user.Disabled
+	}
 	cfg := a.Config()
 	return cfg.IsAdminLogin(login) || cfg.IsLocalAdminLogin(login)
 }
@@ -217,6 +235,16 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/auth/github/login", wrap(a.githubLogin))
 	mux.HandleFunc("GET /v1/auth/github/callback", wrap(a.githubCallback))
 	mux.HandleFunc("POST /v1/auth/logout", wrap(a.logout))
+	mux.HandleFunc("POST /v1/auth/password", wrap(a.changeOwnPassword))
+
+	// Built-in users and user groups.
+	mux.HandleFunc("GET /v1/directory", wrap(a.getDirectory))
+	mux.HandleFunc("POST /v1/directory/users", wrap(a.createDirectoryUser))
+	mux.HandleFunc("PATCH /v1/directory/users/{username}", wrap(a.updateDirectoryUser))
+	mux.HandleFunc("DELETE /v1/directory/users/{username}", wrap(a.deleteDirectoryUser))
+	mux.HandleFunc("POST /v1/directory/groups", wrap(a.createDirectoryGroup))
+	mux.HandleFunc("PATCH /v1/directory/groups/{name}", wrap(a.updateDirectoryGroup))
+	mux.HandleFunc("DELETE /v1/directory/groups/{name}", wrap(a.deleteDirectoryGroup))
 
 	// API key management.
 	mux.HandleFunc("GET /v1/keys", wrap(a.listKeys))

@@ -207,17 +207,22 @@
     "policy": {
       "label": "模型策略",
       "title": "模型策略",
-      "subtitle": "模型組，以及每個使用者、團隊與組織取得的模型組——也就是呼叫方可以請求哪些模型"
+      "subtitle": "模型組，以及每個使用者、使用者群組、團隊與組織取得的模型組——也就是呼叫方可以請求哪些模型"
     },
     "access": {
       "label": "存取控制",
       "title": "存取控制",
-      "subtitle": "管理員與登入範圍、GitHub OAuth 應用程式，以及依 Enterprise / Team / Organization 控制誰能建立 API 金鑰"
+      "subtitle": "管理員與登入範圍、GitHub OAuth 應用程式，以及依使用者群組 / Enterprise / Team / Organization 控制誰能建立 API 金鑰"
     },
     "credits": {
       "label": "AI Credits",
       "title": "Copilot AI Credits",
       "subtitle": "企業 AI Credits 共享池、輪詢頻率，以及共享池仍有餘額時是否攔截 BYOK"
+    },
+    "users": {
+      "label": "使用者管理",
+      "title": "使用者與使用者群組",
+      "subtitle": "以使用者名稱和密碼登入的內建帳號，以及可在各項策略中繫結的使用者群組"
     }
   },
   "credits": {
@@ -365,7 +370,8 @@
     "bindingCount_other": "{{count}} 處繫結",
     "kind": {
       "github": "GitHub",
-      "local": "本機"
+      "local": "本機",
+      "builtin": "內建"
     },
     "table": {
       "login": "登入名",
@@ -423,6 +429,14 @@
       "teamNotAllowed": "依金鑰策略，該團隊不允許建立 API 金鑰。",
       "orphan": "未發現",
       "orphanHint": "已在 config.yaml 中繫結，但不在已發現的結構裡——可能是手動輸入的，或來自目前權杖已無法讀取的企業。該繫結依然生效。"
+    },
+    "user_groups": {
+      "title": "使用者群組繫結",
+      "lead": "來自<a>使用者管理</a>頁面的內建使用者群組。已繫結群組的成員可以使用對應模型組中的模型。成員關係在本機判定，不需要任何 GitHub token。",
+      "none": "還沒有使用者群組，請先在「使用者管理」頁面建立。",
+      "key": "使用者群組",
+      "members": "成員",
+      "empty": "（無成員）"
     }
   },
   "shell": {
@@ -445,7 +459,9 @@
     "update": {
       "available": "更新 {{version}}",
       "title": "版本 {{version}} 已發布，點選查看發布說明。"
-    }
+    },
+    "builtinAccount": "內建帳號",
+    "userGroup": "使用者群組"
   },
   "login": {
     "title": "Model Router 主控台",
@@ -460,8 +476,11 @@
       "password": "密碼",
       "submit": "登入",
       "hint": "本機管理員帳號用於 github.com 無法連線的情況，它設定在 config.yaml 中，不是 GitHub 帳號。",
-      "failed": "使用者名稱或密碼不正確。"
-    }
+      "failed": "使用者名稱或密碼不正確。",
+      "hintBuiltin": "內建帳號由管理員在「使用者管理」頁面建立，不是 GitHub 帳號。",
+      "disabled": "此帳號已被停用，請聯絡管理員。"
+    },
+    "leadLocal": "使用使用者名稱和密碼登入。登入後可建立 API 金鑰、檢視自己的呼叫與用量；管理員還可以管理使用者、路由策略與後端連線。"
   },
   "setup": {
     "blocked": {
@@ -488,7 +507,14 @@
     "tooShort": "新密碼至少 8 個字元。",
     "mismatch": "兩次輸入的新密碼不一致。",
     "submit": "修改密碼並繼續",
-    "recovery": "被鎖在門外？把 config.yaml 中 auth.local_admin 下的 password_hash 與 password_salt 清空，內建的預設密碼就會重新生效。"
+    "recovery": "被鎖在門外？把 config.yaml 中 auth.local_admin 下的 password_hash 與 password_salt 清空，內建的預設密碼就會重新生效。",
+    "builtinTitle": "設定你自己的密碼",
+    "builtinLead": "你的帳號使用的是管理員設定的初始密碼。請先換成只有你自己知道的密碼。",
+    "builtinRecovery": "忘記密碼？請聯絡管理員在「使用者管理」頁面重設。",
+    "changeTitle": "修改密碼",
+    "changeSubmit": "修改密碼",
+    "changeLead": "修改密碼後，你在其他地方的登入工作階段都會失效，目前的工作階段保持登入。",
+    "changedToast": "密碼已修改。"
   },
   "usage": {
     "allUsers": "全部使用者",
@@ -543,7 +569,7 @@
       "policy-disabled": "本路由器未啟用模型策略，因此<strong>模型目錄中的全部模型</strong>對你可用。",
       "administrator": "你是<strong>管理員</strong>。模型策略是一種分發控制，而不是權限邊界，因此對你不生效，整個目錄保持可用。",
       "no-binding": "模型策略已啟用，但<strong>沒有任何繫結指向你的帳號</strong>：既沒有預設模型組，也沒有涵蓋到你的團隊或組織授權。未繫結的帳號按不受限處理，而不是被鎖定，因此完整目錄可用。",
-      "union": "你的清單是所有授予你的模型組的<strong>聯集</strong>，來源包括你的帳號、你的團隊和你的組織。授權只會增加模型，永遠不會減少。",
+      "union": "你的清單是所有授予你的模型組的<strong>聯集</strong>，來源包括你的帳號、你的使用者群組、你的團隊和你的組織。授權只會增加模型，永遠不會減少。",
       "empty-group": "授予你的每個模型組都是<strong>空組</strong>，因此你目前沒有任何可用模型。在管理員為你的帳號、團隊或組織繫結一個非空模型組之前，請求都會以 <code>403</code> 被拒絕。"
     },
     "blockedBadge": "無可用模型",
@@ -560,7 +586,8 @@
       "default": "預設模型組",
       "user": "帳號",
       "team": "團隊",
-      "organization": "組織"
+      "organization": "組織",
+      "user_group": "使用者群組"
     },
     "table": {
       "model": "模型",
@@ -645,7 +672,7 @@
       "grantedVia": "透過方式",
       "enterpriseParenOpen": "（企業 ",
       "enterpriseParenClose": "）",
-      "deniedExplanation": "<strong>這意味著</strong>：你可以登入並檢視本頁，但不能建立 API 金鑰；沒有金鑰就無法透過 GitHub Copilot BYOK 呼叫本服務的 <code>/v1/chat/completions</code>。如需開通，請把下面的依據發給管理員，讓其在「存取控制 → 金鑰策略」中放開你所在的組織或企業團隊。",
+      "deniedExplanation": "<strong>這意味著</strong>：你可以登入並檢視本頁，但不能建立 API 金鑰；沒有金鑰就無法透過 GitHub Copilot BYOK 呼叫本服務的 <code>/v1/chat/completions</code>。如需開通，請把下面的依據發給管理員，讓其把你加入已開放的使用者群組，或在「存取控制 → 金鑰策略」中放開你所在的組織或企業團隊。",
       "table": {
         "enterprise": "企業",
         "scope": "範圍",
@@ -659,7 +686,9 @@
         "probe": "探測快取",
         "probeHint": "由先前即時探測的結果判定",
         "live": "即時",
-        "liveHint": "本次請求即時呼叫了 GitHub —— 這一列仍然是每次判定一趟往返"
+        "liveHint": "本次請求即時呼叫了 GitHub —— 這一列仍然是每次判定一趟往返",
+        "directory": "本機",
+        "directoryHint": "由本服務自己的使用者群組判定，未呼叫 GitHub"
       },
       "reason": {
         "admin": "你是本服務的管理員，可以直接建立 API 金鑰。",
@@ -670,7 +699,8 @@
         "memberTeam": "你是企業團隊 {{name}} 的成員（企業 {{enterprise}}），因此可以建立 API 金鑰。",
         "memberEnterprise": "你是企業 {{name}} 的成員，因此可以建立 API 金鑰。",
         "member": "你是 {{name}} 的成員（企業 {{enterprise}}），因此可以建立 API 金鑰。",
-        "noMembership": "你不屬於任何已開放的企業、企業團隊或組織，因此不能建立 API 金鑰，也就無法使用 BYOK。若要申請，請讓管理員把你的組織加入允許清單。"
+        "noMembership": "你不屬於任何已開放的使用者群組、企業、企業團隊或組織，因此不能建立 API 金鑰，也就無法使用 BYOK。若要申請，請讓管理員把你加入已開放的使用者群組，或把你的組織加入允許清單。",
+        "memberUserGroup": "你是使用者群組 {{name}} 的成員，因此可以建立 API 金鑰。"
       },
       "scanned": "（探測 {{count}} 個）",
       "scannedTruncated": "（探測 {{count}} 個，已截斷）",
@@ -711,14 +741,15 @@
       "verdict": {
         "admin": "管理員可以為任何金鑰設定範圍。",
         "off": "本部署未啟用縮小 API 金鑰範圍，因此每個金鑰都涵蓋全部模型與全部連線類型。請聯絡管理員。",
-        "nobodyAllowed": "縮小 API 金鑰範圍已啟用，但管理員尚未開放任何使用者、團隊或組織，因此每個金鑰都涵蓋全部模型與全部連線類型。請聯絡管理員。",
+        "nobodyAllowed": "縮小 API 金鑰範圍已啟用，但管理員尚未開放任何使用者、使用者群組、團隊或組織，因此每個金鑰都涵蓋全部模型與全部連線類型。請聯絡管理員。",
         "levelsFailed": "你不被允許縮小 API 金鑰的範圍：管理員要求在{{levels}}層級上符合，而你並不符合。你建立的每個金鑰都涵蓋全部模型與全部連線類型。請聯絡管理員。",
         "allowed": "你可以把 API 金鑰限制到指定模型或指定連線類型。"
       },
       "levelName": {
         "user": "使用者",
         "team": "團隊",
-        "organization": "組織"
+        "organization": "組織",
+        "user_group": "使用者群組"
       }
     }
   },
@@ -740,7 +771,7 @@
       },
       "policy": {
         "label": "金鑰策略",
-        "hint": "依 Enterprise / Team / Organization 控制誰能建立金鑰"
+        "hint": "依使用者群組 / Enterprise / Team / Organization 控制誰能建立金鑰"
       },
       "keyscope": {
         "label": "金鑰範圍",
@@ -752,7 +783,8 @@
       "team": "企業團隊",
       "enterprise": "企業直屬成員",
       "org-scan": "組織批次探測",
-      "admin": "服務管理員"
+      "admin": "服務管理員",
+      "user_group": "使用者群組"
     },
     "admins": {
       "title": "管理員",
@@ -837,11 +869,11 @@
       "title": "金鑰建立策略",
       "enabled": "已啟用",
       "disabled": "未啟用",
-      "toggle": "僅允許指定企業 / 組織中的使用者建立 API 金鑰",
-      "enabledNote": "已啟用：一般使用者建立金鑰時會即時向 GitHub 核實其企業與組織歸屬，不屬於任何被允許範圍的使用者會被拒絕（403），因此無法使用 BYOK。管理員不受此限制。",
+      "toggle": "僅允許指定使用者群組 / 企業 / 組織中的使用者建立 API 金鑰",
+      "enabledNote": "已啟用：一般使用者建立金鑰時會先檢查其所屬使用者群組，再向 GitHub 核實其企業與組織歸屬，不屬於任何被允許範圍的使用者會被拒絕（403），因此無法使用 BYOK。管理員不受此限制。",
       "disabledNote": "未啟用：<strong>任何能登入的 GitHub 帳號都能建立 API 金鑰並使用 BYOK</strong>。如果上面的「允許任意 GitHub 帳號登入」也是開啟的，等於對整個 GitHub 開放。",
       "missingTokenBadge": "缺少 token",
-      "missingTokenNote": "已啟用策略但未設定 Enterprise token，服務無法核實歸屬，<strong>目前會拒絕所有非管理員的建立金鑰請求</strong>。請在下方填入 token。",
+      "missingTokenNote": "已啟用策略，但既未設定 Enterprise token，也未開放任何使用者群組，服務無法核實歸屬，<strong>目前會拒絕所有非管理員的建立金鑰請求</strong>。請在下方開放使用者群組，或填入 token。",
       "tokenTitle": "GitHub Enterprise 管理員 token",
       "tokenOk": "有效",
       "tokenBad": "異常",
@@ -884,18 +916,23 @@
       "allowedTeamsHint": "依團隊的數字 id 判定成員（GitHub 只接受 id），介面與使用者端均顯示團隊名稱",
       "teamListUnavailable": "團隊清單不可用",
       "teamListUnavailableNote": "——該企業只能依組織授權。",
-      "noTeams": "該企業下沒有企業團隊。"
+      "noTeams": "該企業下沒有企業團隊。",
+      "userGroups": {
+        "title": "允許的使用者群組",
+        "lead": "勾選群組的成員可以建立 API 金鑰。群組來自<a>使用者管理</a>頁面，可以包含內建使用者和 GitHub 帳號。它在所有企業規則之前判定，不需要 GitHub token。",
+        "none": "還沒有使用者群組，請先在「使用者管理」頁面建立。"
+      }
     },
     "keyscope": {
       "title": "限制 API 金鑰的範圍",
       "on": "已對下列帳號開放",
       "off": "任何人都不可以",
-      "toggle": "允許下列使用者、團隊與組織限制自己的 API 金鑰",
+      "toggle": "允許下列使用者、使用者群組、團隊與組織限制自己的 API 金鑰",
       "onNote": "由下面三張表決定誰可以這樣做。其餘帳號建立的金鑰都涵蓋<strong>全部模型與全部連線類型</strong>。",
       "offNote": "任何人都不能限制金鑰。每個金鑰都涵蓋<strong>全部模型與全部連線類型</strong>，這也是範圍功能出現之前每個金鑰的行為，因此保持關閉不會收回任何能力。",
       "why": "把金鑰限制到某個昂貴模型，等於<strong>把這個金鑰上的每一次請求都釘在它上面</strong>，把便宜的工作派給便宜的模型對該金鑰就不再成立。這正是本開關要避免的成本問題。",
       "emptyBadge": "目前誰都不符合",
-      "empty": "開關已開啟但三張表都是空的，所以目前沒有人可以限制金鑰。請至少新增一個使用者、團隊或組織。",
+      "empty": "開關已開啟但所有清單都是空的，所以目前沒有人可以限制金鑰。請至少新增一個使用者、使用者群組、團隊或組織。",
       "ruleAnd": "凡是填了內容的表<strong>都必須命中</strong>。填了兩張表，就要同時命中兩張。",
       "ruleAbstain": "留空的表<strong>不參與判斷</strong>，所以只填一個組織，就等於允許該組織裡的所有人。",
       "ruleOr": "同一張表內命中任一項即可。",
@@ -932,7 +969,8 @@
         "orgNotAllowed": "依金鑰政策，該組織不被允許建立 API 金鑰。",
         "teamNotAllowed": "依金鑰政策，該團隊不被允許建立 API 金鑰。",
         "userNotAllowed": "依金鑰政策，該帳號不可建立 API 金鑰，因此也不存在需要縮小範圍的金鑰。",
-        "unknown": "無法確定該帳號是否可以建立 API 金鑰，因此仍然顯示而不隱藏。"
+        "unknown": "無法確定該帳號是否可以建立 API 金鑰，因此仍然顯示而不隱藏。",
+        "groupNotAllowed": "依金鑰策略，此使用者群組不允許建立 API 金鑰。"
       },
       "table": {
         "source": "來源",
@@ -968,6 +1006,17 @@
         "addTitle": "新增組織",
         "prompt": "組織登入名稱。",
         "noneEligible": "依金鑰政策，沒有任何組織被允許建立 API 金鑰，因此這裡沒有可開放的對象。請在「存取控制 → 金鑰政策」中開放，或手動輸入組織。"
+      },
+      "user_groups": {
+        "title": "使用者群組",
+        "lead": "來自「使用者管理」頁面的內建使用者群組。勾選允許其成員限制自己金鑰的群組。",
+        "key": "使用者群組",
+        "none": "還沒有使用者群組，請先在「使用者管理」頁面建立。",
+        "search": "篩選群組",
+        "addTitle": "新增使用者群組",
+        "prompt": "允許其成員限制自己金鑰的使用者群組名稱。",
+        "noneEligible": "依金鑰策略，沒有任何使用者群組被允許建立 API 金鑰，因此這裡沒有可開放的對象。請在「存取控制 → 金鑰策略」中開放。",
+        "source_other": "使用者群組 · {{count}} 位成員"
       }
     }
   },
@@ -1407,6 +1456,130 @@
       "defaultNote": "前面都沒有決定時使用",
       "unused": "目前策略不使用",
       "noModel": "未設定"
+    }
+  },
+  "users": {
+    "section": {
+      "users": {
+        "label": "使用者",
+        "hint": "以使用者名稱和密碼登入的內建帳號"
+      },
+      "groups": {
+        "label": "使用者群組",
+        "hint": "由內建使用者和 GitHub 帳號組成的具名集合，可像團隊一樣在各項策略中繫結"
+      }
+    },
+    "noMatch": "沒有與「{{query}}」相符的項目。",
+    "kind": {
+      "builtin": "內建",
+      "github": "GitHub"
+    },
+    "users": {
+      "title": "內建使用者",
+      "count_other": "{{count}} 位使用者",
+      "search": "篩選使用者",
+      "new": "新增使用者",
+      "lead": "儲存在本服務中、而不是 GitHub 上的帳號。他們在登入頁使用<strong>使用者名稱和密碼</strong>登入，和 GitHub 帳號一樣可以建立 API 金鑰、檢視呼叫鏈路與用量。這裡的修改立即生效，無需儲存。",
+      "none": "還沒有內建使用者。建立後，沒有 GitHub 帳號的人也能登入。",
+      "table": {
+        "user": "使用者",
+        "role": "角色",
+        "status": "狀態",
+        "groups": "群組",
+        "keys": "API 金鑰",
+        "lastSeen": "最近登入"
+      },
+      "statusActive": "正常",
+      "statusDisabled": "已停用",
+      "mustChange": "需修改密碼",
+      "mustChangeHint": "該使用者下次登入時必須先設定新密碼，才能進行其他操作。",
+      "neverSignedIn": "從未登入",
+      "edit": "編輯",
+      "resetPassword": "重設密碼",
+      "enable": "啟用",
+      "disable": "停用",
+      "notYourself": "不能對自己的帳號執行此操作。",
+      "disableTitle": "停用 {{name}}？",
+      "disableMessage_other": "該使用者會立即被登出、無法再登入，名下 {{count}} 個 API 金鑰也會停止運作，直到重新啟用。",
+      "disabledToast": "已停用 {{name}}。",
+      "enabledToast": "已重新啟用 {{name}}。",
+      "deleteTitle": "刪除 {{name}}？",
+      "deleteMessage_other": "<strong>{{name}}</strong> 會從所有群組中移除並被登出，名下 {{count}} 個 API 金鑰會被刪除。呼叫鏈路會保留。此操作無法復原。",
+      "deletedToast": "已刪除 {{name}}。",
+      "createdToast": "已建立 {{name}}。請把使用者名稱和你設定的密碼告知對方。",
+      "savedToast": "已儲存 {{name}}。",
+      "resetToast": "已重設 {{name}} 的密碼，其所有工作階段都已登出。",
+      "howTitle": "內建使用者如何運作",
+      "howSignIn": "<strong>登入。</strong>只要存在一位已啟用的內建使用者，登入頁就會提供使用者名稱和密碼表單；若同時設定了 GitHub，兩種方式並存。",
+      "howPolicies": "<strong>權限。</strong>內建使用者的繫結方式和 GitHub 登入名稱一樣：在模型策略和金鑰範圍中可依名稱繫結，在模型策略、金鑰策略和金鑰範圍中可透過所屬使用者群組繫結。GitHub 組織和團隊永遠不會套用到內建使用者身上。",
+      "howNames": "<strong>使用者名稱。</strong>不能使用已經代表其他人的名稱：本機管理員、admin_logins 中的 GitHub 管理員，或已登入過的 GitHub 帳號。反過來，與內建使用者同名的 GitHub 帳號也會被拒絕登入。",
+      "howDisable": "<strong>停用與重設。</strong>停用帳號會立即讓其主控台工作階段和 API 金鑰失效；重設密碼會登出該帳號的所有工作階段。"
+    },
+    "form": {
+      "createTitle": "新增內建使用者",
+      "editTitle": "編輯 {{name}}",
+      "create": "建立",
+      "save": "儲存",
+      "username": "使用者名稱",
+      "usernameHint": "字母、數字、「.」、「_」或「-」；建立後不可修改",
+      "usernameFixed": "不可修改",
+      "usernameInvalid": "請使用 1–64 個字母、數字、「.」、「_」或「-」，並以字母或數字開頭。",
+      "displayName": "顯示名稱",
+      "email": "電子郵件",
+      "emailHint": "選填，僅供記錄",
+      "password": "密碼",
+      "passwordHint": "至少 {{count}} 個字元",
+      "confirm": "確認密碼",
+      "isAdmin": "管理員",
+      "isAdminHint": "管理員可以管理本服務：路由、連線、各項策略、使用者，以及所有使用者的呼叫鏈路。",
+      "isAdminSelf": "這是你自己的帳號，不能取消自己的管理員角色。",
+      "mustChange": "下次登入時要求設定新密碼",
+      "mustChangeHint": "密碼由你設定時建議勾選：使用者會把它換成只有自己知道的密碼。",
+      "groups": "使用者群組",
+      "noGroups": "還沒有使用者群組。請在「使用者群組」分頁中建立。"
+    },
+    "reset": {
+      "title": "重設 {{name}} 的密碼",
+      "submit": "重設密碼",
+      "lead": "該帳號的所有工作階段都會被登出。請透過可靠的管道把新密碼告知使用者。"
+    },
+    "groups": {
+      "title": "使用者群組",
+      "count_other": "{{count}} 個群組",
+      "new": "新增群組",
+      "lead": "使用者群組是一組登入名稱的具名集合，<strong>內建使用者和 GitHub 帳號都可以加入</strong>。每項策略都可以像繫結 GitHub 團隊一樣繫結群組；成員關係在本服務內判定，不需要 GitHub token。",
+      "none": "還沒有使用者群組。",
+      "memberCount_other": "{{count}} 位成員",
+      "empty": "還沒有成員。",
+      "usedModel": "模型組：{{group}}",
+      "usedModelHint": "已在模型策略中繫結",
+      "usedKeyPolicy": "可建立金鑰",
+      "usedKeyScope": "可限制金鑰",
+      "deleteTitle": "刪除群組 {{name}}？",
+      "deleteMessage": "成員帳號會保留，只刪除這個群組。",
+      "deleteUsed": "成員帳號會保留，只刪除這個群組。該群組也會從模型策略、金鑰策略和金鑰範圍中移除，它授予成員的權限隨之失效。",
+      "deletedToast": "已刪除群組 {{name}}。",
+      "savedToast": "已儲存群組 {{name}}。",
+      "createTitle": "新增使用者群組",
+      "editTitle": "編輯群組 {{name}}",
+      "name": "群組名稱",
+      "nameHint": "字母、數字、「.」、「_」或「-」；建立後不可修改",
+      "nameInvalid": "請使用 1–64 個字母、數字、「.」、「_」或「-」，並以字母或數字開頭。",
+      "description": "描述",
+      "builtinMembers": "內建使用者",
+      "selected_other": "已選 {{count}} 位成員",
+      "noBuiltin": "還沒有內建使用者。",
+      "githubMembers": "GitHub 帳號",
+      "githubMembersHint": "已登入過的帳號；尚未登入的可在下方輸入登入名稱新增",
+      "noGithub": "還沒有 GitHub 帳號登入過。",
+      "typePlaceholder": "GitHub 登入名稱，例如 octocat",
+      "add": "新增",
+      "badLogin": "「{{name}}」不是有效的登入名稱。",
+      "whereTitle": "群組用在哪裡",
+      "whereModels": "<strong><a>模型策略</a></strong>：為使用者群組繫結一個模型組，群組成員即可使用這些模型，並與其他授權取聯集。",
+      "whereKeys": "<strong><a>存取控制 → 金鑰策略</a></strong>：已開放群組的成員可以建立 API 金鑰。最先判定，無需 GitHub token。",
+      "whereScope": "<strong><a>存取控制 → 金鑰範圍</a></strong>：「誰可以縮小金鑰範圍」中的使用者群組一級。",
+      "whereSignIn": "<strong>GitHub 登入</strong>：關閉 <code>allow_any_github_user</code> 時，屬於任一使用者群組的 GitHub 帳號仍然可以登入。"
     }
   }
 }

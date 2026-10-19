@@ -21,6 +21,7 @@ import (
 
 	"github.com/satomic/model-router/server-go/internal/authstore"
 	"github.com/satomic/model-router/server-go/internal/config"
+	"github.com/satomic/model-router/server-go/internal/directory"
 	"github.com/satomic/model-router/server-go/internal/localadmin"
 	"github.com/satomic/model-router/server-go/internal/omap"
 )
@@ -290,10 +291,19 @@ func ExchangeCodeForUser(ctx context.Context, r *http.Request, cfg *config.Route
 	if login == "" {
 		return nil, Errorf(http.StatusBadRequest, "GitHub user info has no login")
 	}
+	// The login namespace is shared with built-in users, and everything -- sessions, keys,
+	// traces, policy bindings -- keys on the login. Signing a GitHub account in under a name a
+	// built-in user already holds would hand it that user's keys and history.
+	if directory.IsUser(login) {
+		return nil, Errorf(http.StatusConflict,
+			"the GitHub login %s is taken by a built-in user of this service; ask an administrator to rename or remove that user", login)
+	}
 	isAdmin := cfg.IsAdminLogin(login)
-	if !isAdmin && !cfg.AllowAnyGitHubUser {
+	// With sign-in closed to arbitrary GitHub accounts, membership of a built-in user group is
+	// the other way onto the list: it is how a deployment without an enterprise names its users.
+	if !isAdmin && !cfg.AllowAnyGitHubUser && len(directory.GroupsOf(login)) == 0 {
 		return nil, Errorf(http.StatusForbidden,
-			"only administrators may sign in right now (auth.allow_any_github_user = false)")
+			"only administrators and members of a user group may sign in right now (auth.allow_any_github_user = false)")
 	}
 	name := ghUser.Str("name")
 	if name == "" {
@@ -321,6 +331,7 @@ var passwordChangeExempt = map[string]bool{
 	"/v1/auth/status":         true,
 	"/v1/auth/logout":         true,
 	"/v1/auth/local/password": true,
+	"/v1/auth/password":       true,
 }
 
 // CurrentUser resolves the session cookie into the signed-in user, or nil.
@@ -329,7 +340,25 @@ func CurrentUser(r *http.Request, store *authstore.Store, cfg *config.RouterConf
 	if session == nil {
 		return nil
 	}
-	if session.Bool("local_admin", false) {
+	if session.Bool("local_user", false) {
+		// A built-in user's standing is read from the directory on every request, so disabling,
+		// demoting, deleting or resetting the password of an account takes effect immediately
+		// rather than when its sessions expire. The credential version is what ends sessions
+		// opened before a password change.
+		record := directory.LookupUser(session.Str("login"))
+		if record == nil || record.Disabled ||
+			record.CredentialVersion != session.Int("credential_version", 0) {
+			return nil
+		}
+		session.Set("is_admin", record.IsAdmin)
+		session.Set("must_change_password", record.MustChange)
+		name := record.DisplayName
+		if name == "" {
+			name = record.Username
+		}
+		session.Set("name", name)
+		session.Set("groups", stringsToAny(directory.GroupsOf(record.Username)))
+	} else if session.Bool("local_admin", false) {
 		// A local administrator's authority comes from auth.local_admin, not from admin_logins --
 		// resolving it through IsAdminLogin would silently demote the account one request after
 		// sign-in. Recomputed for the same reason as the GitHub branch below: renaming or
@@ -343,6 +372,14 @@ func CurrentUser(r *http.Request, store *authstore.Store, cfg *config.RouterConf
 		session.Set("must_change_password", false)
 	}
 	return session
+}
+
+func stringsToAny(items []string) []any {
+	out := make([]any, len(items))
+	for i, item := range items {
+		out[i] = item
+	}
+	return out
 }
 
 func RequireUser(r *http.Request, store *authstore.Store, cfg *config.RouterConfig) (*omap.Map, error) {

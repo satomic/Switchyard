@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import {
   discoverEnterprises,
   getSignedInUsers,
@@ -9,6 +10,7 @@ import {
 } from '../../api'
 import { useDialogs } from '../../components/Dialog'
 import { formatDateTime } from '../../i18n/format'
+import { useDirectoryGroups } from '../users/useGroups'
 import ScopeBindings from './ScopeBindings'
 import type { PolicyProps } from './types'
 
@@ -254,6 +256,14 @@ export default function PolicySection({ cfg, set }: PolicyProps) {
         }
       />
 
+      {/* -- Built-in user groups, from the Users page. Local membership: no token needed -- */}
+      <UserGroupBindings
+        table={policy.user_groups}
+        groupNames={groupNames}
+        groups={groups}
+        onChange={(table) => setPolicy({ user_groups: table })}
+      />
+
       {/* -- Team and organization bindings, picked from the discovered enterprise structure -- */}
       <ScopeBindings
         scope="teams"
@@ -321,7 +331,7 @@ function useStructure(tokenSaved: boolean): {
 
 /** How many bindings (including the default group) point at `group`. */
 function countBindings(policy: ModelPolicy, group: string): number {
-  const tables = [policy.users, policy.teams, policy.organizations]
+  const tables = [policy.users, policy.teams, policy.organizations, policy.user_groups]
   return (
     (policy.default_group === group ? 1 : 0) +
     tables.reduce(
@@ -348,6 +358,7 @@ function repoint(policy: ModelPolicy, from: string, to: string): ModelPolicy {
     users: move(policy.users),
     teams: move(policy.teams),
     organizations: move(policy.organizations),
+    user_groups: move(policy.user_groups),
   }
 }
 
@@ -441,12 +452,13 @@ function SignedInUsers({
                 <tr key={u.login}>
                   <td className="mono">{u.login}</td>
                   <td>
-                    <span className={`badge ${u.kind === 'local' ? 'warn' : ''}`}>
+                    <span className={`badge ${u.kind === 'local' ? 'warn' : u.kind === 'builtin' ? 'ok' : ''}`}>
                       {t(`policy.kind.${u.kind}`, { defaultValue: u.kind })}
                     </span>
                   </td>
-                  <td className="dim">{formatDateTime(u.first_seen * 1000)}</td>
-                  <td className="dim">{formatDateTime(u.last_seen * 1000)}</td>
+                  {/* A built-in user listed before their first sign-in has no dates yet. */}
+                  <td className="dim">{u.first_seen ? formatDateTime(u.first_seen * 1000) : '—'}</td>
+                  <td className="dim">{u.last_seen ? formatDateTime(u.last_seen * 1000) : '—'}</td>
                   <td className="mono">{u.sign_ins}</td>
                   <td>
                     <select value={bound(u.login)} onChange={(e) => onBind(u.login, e.target.value)}>
@@ -471,3 +483,116 @@ function SignedInUsers({
   )
 }
 
+
+/** Which model group each built-in user group gets.
+ *
+ *  Same union semantics as the team and organization tables, but with no discovery step and no
+ *  token: the groups are this deployment's own (the Users page), and membership is answered
+ *  locally. A binding left behind for a group that no longer exists is listed so it can be cleared.
+ */
+function UserGroupBindings({
+  table,
+  groupNames,
+  groups,
+  onChange,
+}: {
+  table?: Record<string, string>
+  groupNames: string[]
+  groups: Record<string, string[]>
+  onChange: (table: Record<string, string>) => void
+}) {
+  const { t } = useTranslation()
+  const directory = useDirectoryGroups()
+  const bindings = table ?? {}
+  const known = new Set((directory.groups ?? []).map((g) => g.name.toLowerCase()))
+  const orphans = Object.keys(bindings).filter((k) => directory.groups && !known.has(k.toLowerCase()))
+  const boundCount = Object.keys(bindings).length
+
+  const bound = (name: string) =>
+    Object.entries(bindings).find(([k]) => k.toLowerCase() === name.toLowerCase())?.[1] ?? ''
+
+  const setBinding = (name: string, group: string) => {
+    const next = Object.fromEntries(
+      Object.entries(bindings).filter(([k]) => k.toLowerCase() !== name.toLowerCase()),
+    )
+    if (group) next[name] = group
+    onChange(next)
+  }
+
+  const select = (name: string) => (
+    <select value={bound(name)} onChange={(e) => setBinding(name, e.target.value)}>
+      <option value="">{t('policy.noBinding')}</option>
+      {groupNames.map((g) => (
+        <option key={g} value={g}>
+          {t('policy.groupOption', { name: g, count: (groups[g] ?? []).length })}
+        </option>
+      ))}
+    </select>
+  )
+
+  return (
+    <div className="panel" data-panel="user-groups">
+      <div className="panel-head">
+        {t('policy.user_groups.title')}
+        <span className="badge">{t('policy.bindingCount', { count: boundCount })}</span>
+        <span className="spacer" />
+        <button className="btn subtle sm" onClick={directory.reload}>
+          {t('common.refresh')}
+        </button>
+      </div>
+      <div className="panel-body">
+        <p className="panel-note" style={{ marginTop: 0 }}>
+          <Trans i18nKey="policy.user_groups.lead" components={{ strong: <strong />, a: <Link to="/users/groups" /> }} />
+        </p>
+        {directory.error ? (
+          <p className="panel-note" style={{ marginBottom: 0 }}>
+            <span className="badge error">{t('common.error')}</span> {directory.error}
+          </p>
+        ) : !directory.groups ? (
+          <div className="empty">{t('common.loading')}</div>
+        ) : !directory.groups.length && !orphans.length ? (
+          <div className="empty">{t('policy.user_groups.none')}</div>
+        ) : (
+          <table>
+            <colgroup>
+              <col style={{ width: '30%' }} />
+              <col style={{ width: '44%' }} />
+              <col style={{ width: '26%' }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>{t('policy.user_groups.key')}</th>
+                <th>{t('policy.user_groups.members')}</th>
+                <th>{t('policy.table.group')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {directory.groups.map((g) => (
+                <tr key={g.name}>
+                  <td className="mono truncate">{g.name}</td>
+                  <td className="dim truncate" title={g.members.map((m) => m.login).join(', ')}>
+                    {g.members.length
+                      ? g.members.map((m) => m.login).join(t('common.listSeparator'))
+                      : t('policy.user_groups.empty')}
+                  </td>
+                  <td>{select(g.name)}</td>
+                </tr>
+              ))}
+              {orphans.map((name) => (
+                <tr key={name}>
+                  <td className="mono truncate">{name}</td>
+                  <td>
+                    <span className="badge" title={t('policy.bindings.orphanHint')}>
+                      {t('policy.bindings.orphan')}
+                    </span>
+                  </td>
+                  <td>{select(name)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}

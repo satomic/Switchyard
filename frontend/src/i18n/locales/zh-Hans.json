@@ -207,17 +207,22 @@
     "policy": {
       "label": "模型策略",
       "title": "模型策略",
-      "subtitle": "模型组，以及每个用户、团队和组织获得的模型组——即调用方可以请求哪些模型"
+      "subtitle": "模型组，以及每个用户、用户组、团队和组织获得的模型组——即调用方可以请求哪些模型"
     },
     "access": {
       "label": "访问控制",
       "title": "访问控制",
-      "subtitle": "管理员与登录范围、GitHub OAuth 应用，以及按 Enterprise / Team / Organization 控制谁能创建 API 密钥"
+      "subtitle": "管理员与登录范围、GitHub OAuth 应用，以及按用户组 / Enterprise / Team / Organization 控制谁能创建 API 密钥"
     },
     "credits": {
       "label": "AI Credits",
       "title": "Copilot AI Credits",
       "subtitle": "企业 AI Credits 共享池、轮询频率，以及共享池仍有余额时是否拦截 BYOK"
+    },
+    "users": {
+      "label": "用户管理",
+      "title": "用户与用户组",
+      "subtitle": "用用户名和密码登录的内置账号，以及可在各项策略中绑定的用户组"
     }
   },
   "credits": {
@@ -365,7 +370,8 @@
     "bindingCount_other": "{{count}} 处绑定",
     "kind": {
       "github": "GitHub",
-      "local": "本地"
+      "local": "本地",
+      "builtin": "内置"
     },
     "table": {
       "login": "登录名",
@@ -423,6 +429,14 @@
       "teamNotAllowed": "按照密钥策略，该团队不允许创建 API 密钥。",
       "orphan": "未发现",
       "orphanHint": "已在 config.yaml 中绑定，但不在已发现的结构里——可能是手动输入的，或来自当前令牌已无法读取的企业。该绑定依然生效。"
+    },
+    "user_groups": {
+      "title": "用户组绑定",
+      "lead": "来自<a>用户管理</a>页面的内置用户组。被绑定用户组的成员可以使用对应模型组中的模型。成员关系在本地判定，不需要任何 GitHub token。",
+      "none": "还没有用户组，请先在“用户管理”页面创建。",
+      "key": "用户组",
+      "members": "成员",
+      "empty": "（无成员）"
     }
   },
   "shell": {
@@ -445,7 +459,9 @@
     "update": {
       "available": "更新 {{version}}",
       "title": "版本 {{version}} 已发布，点击查看发布说明。"
-    }
+    },
+    "builtinAccount": "内置账号",
+    "userGroup": "用户组"
   },
   "login": {
     "title": "Model Router 控制台",
@@ -460,8 +476,11 @@
       "password": "密码",
       "submit": "登录",
       "hint": "本地管理员账号用于 github.com 无法访问的场景，它配置在 config.yaml 中，不是 GitHub 账号。",
-      "failed": "用户名或密码不正确。"
-    }
+      "failed": "用户名或密码不正确。",
+      "hintBuiltin": "内置账号由管理员在“用户管理”页面创建，不是 GitHub 账号。",
+      "disabled": "该账号已被停用，请联系管理员。"
+    },
+    "leadLocal": "使用用户名和密码登录。登录后可创建 API 密钥、查看自己的调用与用量；管理员还可以管理用户、路由策略与后端连接。"
   },
   "setup": {
     "blocked": {
@@ -488,7 +507,14 @@
     "tooShort": "新密码至少 8 位。",
     "mismatch": "两次输入的新密码不一致。",
     "submit": "修改密码并继续",
-    "recovery": "被锁在门外？把 config.yaml 中 auth.local_admin 下的 password_hash 与 password_salt 清空，内置的默认密码会重新生效。"
+    "recovery": "被锁在门外？把 config.yaml 中 auth.local_admin 下的 password_hash 与 password_salt 清空，内置的默认密码会重新生效。",
+    "builtinTitle": "设置你自己的密码",
+    "builtinLead": "你的账号使用的是管理员设置的初始密码。请先换成只有你自己知道的密码。",
+    "builtinRecovery": "忘记密码？请联系管理员在“用户管理”页面重置。",
+    "changeTitle": "修改密码",
+    "changeSubmit": "修改密码",
+    "changeLead": "修改密码后，你在其他地方的登录会话都会失效，当前会话保持登录。",
+    "changedToast": "密码已修改。"
   },
   "usage": {
     "allUsers": "全部用户",
@@ -543,7 +569,7 @@
       "policy-disabled": "本路由器未启用模型策略，因此<strong>模型目录中的全部模型</strong>对你可用。",
       "administrator": "你是<strong>管理员</strong>。模型策略是一种分发控制，而不是权限边界，因此对你不生效，整个目录保持可用。",
       "no-binding": "模型策略已启用，但<strong>没有任何绑定指向你的账号</strong>：既没有默认模型组，也没有覆盖到你的团队或组织授权。未绑定的账号按不受限处理，而不是被锁定，因此完整目录可用。",
-      "union": "你的清单是所有授予你的模型组的<strong>并集</strong>，来源包括你的账号、你的团队和你的组织。授权只会增加模型，永远不会减少。",
+      "union": "你的清单是所有授予你的模型组的<strong>并集</strong>，来源包括你的账号、你的用户组、你的团队和你的组织。授权只会增加模型，永远不会减少。",
       "empty-group": "授予你的每个模型组都是<strong>空组</strong>，因此你当前没有任何可用模型。在管理员为你的账号、团队或组织绑定一个非空模型组之前，请求都会以 <code>403</code> 被拒绝。"
     },
     "blockedBadge": "无可用模型",
@@ -560,7 +586,8 @@
       "default": "默认模型组",
       "user": "账号",
       "team": "团队",
-      "organization": "组织"
+      "organization": "组织",
+      "user_group": "用户组"
     },
     "table": {
       "model": "模型",
@@ -645,7 +672,7 @@
       "grantedVia": "通过方式",
       "enterpriseParenOpen": "（企业 ",
       "enterpriseParenClose": "）",
-      "deniedExplanation": "<strong>这意味着</strong>：你可以登录并查看本页，但不能创建 API 密钥；没有密钥就无法通过 GitHub Copilot BYOK 调用本服务的 <code>/v1/chat/completions</code>。如需开通，请把下面的依据发给管理员，让其在「访问控制 → 密钥策略」中放开你所在的组织或企业团队。",
+      "deniedExplanation": "<strong>这意味着</strong>：你可以登录并查看本页，但不能创建 API 密钥；没有密钥就无法通过 GitHub Copilot BYOK 调用本服务的 <code>/v1/chat/completions</code>。如需开通，请把下面的依据发给管理员，让其把你加入被放开的用户组，或在「访问控制 → 密钥策略」中放开你所在的组织或企业团队。",
       "table": {
         "enterprise": "企业",
         "scope": "范围",
@@ -659,7 +686,9 @@
         "probe": "探测缓存",
         "probeHint": "由此前实时探测的结果判定",
         "live": "实时",
-        "liveHint": "本次请求实时调用了 GitHub —— 这一行仍然是每次判定一趟往返"
+        "liveHint": "本次请求实时调用了 GitHub —— 这一行仍然是每次判定一趟往返",
+        "directory": "本地",
+        "directoryHint": "由本服务自己的用户组判定，未调用 GitHub"
       },
       "reason": {
         "admin": "你是本服务的管理员，可以直接创建 API 密钥。",
@@ -670,7 +699,8 @@
         "memberTeam": "你是企业团队 {{name}} 的成员（企业 {{enterprise}}），因此可以创建 API 密钥。",
         "memberEnterprise": "你是企业 {{name}} 的成员，因此可以创建 API 密钥。",
         "member": "你是 {{name}} 的成员（企业 {{enterprise}}），因此可以创建 API 密钥。",
-        "noMembership": "你不属于任何被放开的企业、企业团队或组织，因此不能创建 API 密钥，也就无法使用 BYOK。如需申请，请让管理员把你的组织加入允许列表。"
+        "noMembership": "你不属于任何被放开的用户组、企业、企业团队或组织，因此不能创建 API 密钥，也就无法使用 BYOK。如需申请，请让管理员把你加入被放开的用户组，或把你的组织加入允许列表。",
+        "memberUserGroup": "你是用户组 {{name}} 的成员，因此可以创建 API 密钥。"
       },
       "scanned": "（探测 {{count}} 个）",
       "scannedTruncated": "（探测 {{count}} 个，已截断）",
@@ -711,14 +741,15 @@
       "verdict": {
         "admin": "管理员可以为任何密钥设置作用域。",
         "off": "本部署未启用缩小 API 密钥作用域，因此每个密钥都覆盖全部模型与全部连接类型。请联系管理员。",
-        "nobodyAllowed": "缩小 API 密钥作用域已启用，但管理员尚未放开任何用户、团队或组织，因此每个密钥都覆盖全部模型与全部连接类型。请联系管理员。",
+        "nobodyAllowed": "缩小 API 密钥作用域已启用，但管理员尚未放开任何用户、用户组、团队或组织，因此每个密钥都覆盖全部模型与全部连接类型。请联系管理员。",
         "levelsFailed": "你不被允许缩小 API 密钥的作用域：管理员要求在{{levels}}层级上匹配，而你不满足。你创建的每个密钥都覆盖全部模型与全部连接类型。请联系管理员。",
         "allowed": "你可以把 API 密钥限制到指定模型或指定连接类型。"
       },
       "levelName": {
         "user": "用户",
         "team": "团队",
-        "organization": "组织"
+        "organization": "组织",
+        "user_group": "用户组"
       }
     }
   },
@@ -740,7 +771,7 @@
       },
       "policy": {
         "label": "密钥策略",
-        "hint": "按 Enterprise / Team / Organization 控制谁能建密钥"
+        "hint": "按用户组 / Enterprise / Team / Organization 控制谁能建密钥"
       },
       "keyscope": {
         "label": "密钥作用域",
@@ -752,7 +783,8 @@
       "team": "企业团队",
       "enterprise": "企业直属成员",
       "org-scan": "组织批量探测",
-      "admin": "服务管理员"
+      "admin": "服务管理员",
+      "user_group": "用户组"
     },
     "admins": {
       "title": "管理员",
@@ -837,11 +869,11 @@
       "title": "密钥创建策略",
       "enabled": "已启用",
       "disabled": "未启用",
-      "toggle": "仅允许指定企业 / 组织中的用户创建 API 密钥",
-      "enabledNote": "已启用：普通用户建 key 时会实时向 GitHub 核实其企业与组织归属，不属于任何被允许范围的用户会被拒绝（403），因此无法使用 BYOK。管理员不受此限制。",
+      "toggle": "仅允许指定用户组 / 企业 / 组织中的用户创建 API 密钥",
+      "enabledNote": "已启用：普通用户建 key 时先检查其所属用户组，再向 GitHub 核实其企业与组织归属，不属于任何被允许范围的用户会被拒绝（403），因此无法使用 BYOK。管理员不受此限制。",
       "disabledNote": "未启用：<strong>任何能登录的 GitHub 账号都能创建 API 密钥并使用 BYOK</strong>。如果上面的「允许任意 GitHub 账号登录」也是开启的，等于对整个 GitHub 开放。",
       "missingTokenBadge": "缺少 token",
-      "missingTokenNote": "已启用策略但未配置 Enterprise token，服务无法核实归属，<strong>当前会拒绝所有非管理员的建 key 请求</strong>。请在下方填入 token。",
+      "missingTokenNote": "已启用策略，但既没有配置 Enterprise token，也没有放开任何用户组，服务无法核实归属，<strong>当前会拒绝所有非管理员的建 key 请求</strong>。请在下方放开用户组，或填入 token。",
       "tokenTitle": "GitHub Enterprise 管理员 token",
       "tokenOk": "有效",
       "tokenBad": "异常",
@@ -884,18 +916,23 @@
       "allowedTeamsHint": "按团队的数字 id 判定成员（GitHub 只接受 id），界面与用户侧均显示团队名",
       "teamListUnavailable": "团队列表不可用",
       "teamListUnavailableNote": "——该企业只能按组织授权。",
-      "noTeams": "该企业下没有企业团队。"
+      "noTeams": "该企业下没有企业团队。",
+      "userGroups": {
+        "title": "允许的用户组",
+        "lead": "勾选的用户组的成员可以创建 API 密钥。用户组来自<a>用户管理</a>页面，可以包含内置用户和 GitHub 账号。它在所有企业规则之前判定，不需要 GitHub token。",
+        "none": "还没有用户组，请先在“用户管理”页面创建。"
+      }
     },
     "keyscope": {
       "title": "限制 API 密钥的范围",
       "on": "已对下列账号开放",
       "off": "任何人都不可以",
-      "toggle": "允许下列用户、团队和组织限制自己的 API 密钥",
+      "toggle": "允许下列用户、用户组、团队和组织限制自己的 API 密钥",
       "onNote": "由下面三张表决定谁可以这样做。其余账号创建的密钥都覆盖<strong>全部模型与全部连接类型</strong>。",
       "offNote": "任何人都不能限制密钥。每个密钥都覆盖<strong>全部模型与全部连接类型</strong>，这也是作用域功能出现之前每个密钥的行为，所以保持关闭不会收回任何能力。",
       "why": "把密钥限制到某个昂贵模型，等于<strong>把这个密钥上的每一次请求都钉在它上面</strong>，把便宜的活派给便宜的模型这件事对该密钥就不再成立。这正是本开关要避免的成本问题。",
       "emptyBadge": "当前谁都不满足",
-      "empty": "开关已打开但三张表都是空的，所以目前没有人可以限制密钥。请至少添加一个用户、团队或组织。",
+      "empty": "开关已打开但所有列表都是空的，所以目前没有人可以限制密钥。请至少添加一个用户、用户组、团队或组织。",
       "ruleAnd": "凡是填写了内容的表<strong>都必须命中</strong>。填了两张表，就要同时命中两张。",
       "ruleAbstain": "留空的表<strong>不参与判断</strong>，所以只填一个组织，就等于允许该组织里的所有人。",
       "ruleOr": "同一张表内命中任意一项即可。",
@@ -932,7 +969,8 @@
         "orgNotAllowed": "按照密钥策略，该组织不被允许创建 API 密钥。",
         "teamNotAllowed": "按照密钥策略，该团队不被允许创建 API 密钥。",
         "userNotAllowed": "按照密钥策略，该账号不可创建 API 密钥，因此也不存在需要缩小作用域的密钥。",
-        "unknown": "无法确定该账号是否可以创建 API 密钥，因此仍然显示而不隐藏。"
+        "unknown": "无法确定该账号是否可以创建 API 密钥，因此仍然显示而不隐藏。",
+        "groupNotAllowed": "按照密钥策略，该用户组不允许创建 API 密钥。"
       },
       "table": {
         "source": "来源",
@@ -968,6 +1006,17 @@
         "addTitle": "添加组织",
         "prompt": "组织登录名。",
         "noneEligible": "按照密钥策略，没有任何组织被允许创建 API 密钥，因此这里没有可放开的对象。请在“访问控制 → 密钥策略”中放开，或手动添加组织。"
+      },
+      "user_groups": {
+        "title": "用户组",
+        "lead": "来自“用户管理”页面的内置用户组。勾选允许其成员限制自己密钥的用户组。",
+        "key": "用户组",
+        "none": "还没有用户组，请先在“用户管理”页面创建。",
+        "search": "筛选用户组",
+        "addTitle": "添加用户组",
+        "prompt": "允许其成员限制自己密钥的用户组名称。",
+        "noneEligible": "按照密钥策略，没有任何用户组被允许创建 API 密钥，因此这里没有可放开的对象。请在“访问控制 → 密钥策略”中放开。",
+        "source_other": "用户组 · {{count}} 名成员"
       }
     }
   },
@@ -1407,6 +1456,130 @@
       "defaultNote": "前面都没有决定时使用",
       "unused": "当前策略不使用",
       "noModel": "未设置"
+    }
+  },
+  "users": {
+    "section": {
+      "users": {
+        "label": "用户",
+        "hint": "用用户名和密码登录的内置账号"
+      },
+      "groups": {
+        "label": "用户组",
+        "hint": "由内置用户和 GitHub 账号组成的命名集合，可像团队一样在各项策略中绑定"
+      }
+    },
+    "noMatch": "没有与“{{query}}”匹配的项。",
+    "kind": {
+      "builtin": "内置",
+      "github": "GitHub"
+    },
+    "users": {
+      "title": "内置用户",
+      "count_other": "{{count}} 个用户",
+      "search": "筛选用户",
+      "new": "新建用户",
+      "lead": "保存在本服务中、而不是 GitHub 上的账号。他们在登录页使用<strong>用户名和密码</strong>登录，和 GitHub 账号一样可以创建 API 密钥、查看调用记录与用量。这里的修改立即生效，无需保存。",
+      "none": "还没有内置用户。创建后，没有 GitHub 账号的人也能登录。",
+      "table": {
+        "user": "用户",
+        "role": "角色",
+        "status": "状态",
+        "groups": "用户组",
+        "keys": "API 密钥",
+        "lastSeen": "最近登录"
+      },
+      "statusActive": "正常",
+      "statusDisabled": "已停用",
+      "mustChange": "需修改密码",
+      "mustChangeHint": "该用户下次登录时必须先设置新密码，才能做其他操作。",
+      "neverSignedIn": "从未登录",
+      "edit": "编辑",
+      "resetPassword": "重置密码",
+      "enable": "启用",
+      "disable": "停用",
+      "notYourself": "不能对自己的账号执行此操作。",
+      "disableTitle": "停用 {{name}}？",
+      "disableMessage_other": "该用户会立即被登出、无法再登录，名下 {{count}} 个 API 密钥也会停止工作，直到重新启用。",
+      "disabledToast": "已停用 {{name}}。",
+      "enabledToast": "已重新启用 {{name}}。",
+      "deleteTitle": "删除 {{name}}？",
+      "deleteMessage_other": "<strong>{{name}}</strong> 会从所有用户组中移除并被登出，名下 {{count}} 个 API 密钥会被删除。调用记录会保留。此操作无法撤销。",
+      "deletedToast": "已删除 {{name}}。",
+      "createdToast": "已创建 {{name}}。请把用户名和你设置的密码告知对方。",
+      "savedToast": "已保存 {{name}}。",
+      "resetToast": "已重置 {{name}} 的密码，其所有会话都已登出。",
+      "howTitle": "内置用户如何工作",
+      "howSignIn": "<strong>登录。</strong>只要存在一个已启用的内置用户，登录页就会提供用户名和密码表单；如果同时配置了 GitHub，两种方式并存。",
+      "howPolicies": "<strong>权限。</strong>内置用户的绑定方式和 GitHub 登录名一样：在模型策略和密钥作用域中可按用户名绑定，在模型策略、密钥策略和密钥作用域中可通过所属用户组绑定。GitHub 组织和团队永远不会作用到内置用户身上。",
+      "howNames": "<strong>用户名。</strong>不能使用已经代表其他人的名字：本地管理员、admin_logins 中的 GitHub 管理员，或已登录过的 GitHub 账号。反过来，与内置用户同名的 GitHub 账号也会被拒绝登录。",
+      "howDisable": "<strong>停用与重置。</strong>停用账号会立即让其控制台会话和 API 密钥失效；重置密码会登出该账号的所有会话。"
+    },
+    "form": {
+      "createTitle": "新建内置用户",
+      "editTitle": "编辑 {{name}}",
+      "create": "创建",
+      "save": "保存",
+      "username": "用户名",
+      "usernameHint": "字母、数字、“.”、“_”或“-”；创建后不可修改",
+      "usernameFixed": "不可修改",
+      "usernameInvalid": "请使用 1–64 位字母、数字、“.”、“_”或“-”，并以字母或数字开头。",
+      "displayName": "显示名称",
+      "email": "邮箱",
+      "emailHint": "可选，仅供记录",
+      "password": "密码",
+      "passwordHint": "至少 {{count}} 位",
+      "confirm": "确认密码",
+      "isAdmin": "管理员",
+      "isAdminHint": "管理员可以管理本服务：路由、连接、各项策略、用户，以及所有用户的调用记录。",
+      "isAdminSelf": "这是你自己的账号，不能取消自己的管理员角色。",
+      "mustChange": "下次登录时要求设置新密码",
+      "mustChangeHint": "密码由你设置时建议勾选：用户会把它换成只有自己知道的密码。",
+      "groups": "用户组",
+      "noGroups": "还没有用户组。请在“用户组”标签页中创建。"
+    },
+    "reset": {
+      "title": "重置 {{name}} 的密码",
+      "submit": "重置密码",
+      "lead": "该账号的所有会话都会被登出。请通过可靠的渠道把新密码告知用户。"
+    },
+    "groups": {
+      "title": "用户组",
+      "count_other": "{{count}} 个用户组",
+      "new": "新建用户组",
+      "lead": "用户组是一组登录名的命名集合，<strong>内置用户和 GitHub 账号都可以加入</strong>。每项策略都可以像绑定 GitHub 团队一样绑定用户组；成员关系在本服务内判定，不需要 GitHub token。",
+      "none": "还没有用户组。",
+      "memberCount_other": "{{count}} 名成员",
+      "empty": "还没有成员。",
+      "usedModel": "模型组：{{group}}",
+      "usedModelHint": "已在模型策略中绑定",
+      "usedKeyPolicy": "可创建密钥",
+      "usedKeyScope": "可限制密钥",
+      "deleteTitle": "删除用户组 {{name}}？",
+      "deleteMessage": "成员账号会保留，只删除这个组。",
+      "deleteUsed": "成员账号会保留，只删除这个组。该组也会从模型策略、密钥策略和密钥作用域中移除，它给成员授予的权限随之失效。",
+      "deletedToast": "已删除用户组 {{name}}。",
+      "savedToast": "已保存用户组 {{name}}。",
+      "createTitle": "新建用户组",
+      "editTitle": "编辑用户组 {{name}}",
+      "name": "组名",
+      "nameHint": "字母、数字、“.”、“_”或“-”；创建后不可修改",
+      "nameInvalid": "请使用 1–64 位字母、数字、“.”、“_”或“-”，并以字母或数字开头。",
+      "description": "描述",
+      "builtinMembers": "内置用户",
+      "selected_other": "已选 {{count}} 名成员",
+      "noBuiltin": "还没有内置用户。",
+      "githubMembers": "GitHub 账号",
+      "githubMembersHint": "已登录过的账号；尚未登录的可在下方输入登录名添加",
+      "noGithub": "还没有 GitHub 账号登录过。",
+      "typePlaceholder": "GitHub 登录名，例如 octocat",
+      "add": "添加",
+      "badLogin": "“{{name}}”不是有效的登录名。",
+      "whereTitle": "用户组用在哪里",
+      "whereModels": "<strong><a>模型策略</a></strong>：给用户组绑定一个模型组，组内成员即可使用这些模型，并与其他授权取并集。",
+      "whereKeys": "<strong><a>访问控制 → 密钥策略</a></strong>：被放开的用户组的成员可以创建 API 密钥。最先判定，无需 GitHub token。",
+      "whereScope": "<strong><a>访问控制 → 密钥作用域</a></strong>：“谁可以缩小密钥作用域”中的用户组一级。",
+      "whereSignIn": "<strong>GitHub 登录</strong>：关闭 <code>allow_any_github_user</code> 时，属于任一用户组的 GitHub 账号仍然可以登录。"
     }
   }
 }

@@ -207,17 +207,22 @@
     "policy": {
       "label": "모델 정책",
       "title": "모델 정책",
-      "subtitle": "모델 그룹과 각 사용자·팀·조직에 부여되는 그룹 — 호출자가 요청할 수 있는 모델의 범위"
+      "subtitle": "모델 그룹과 각 사용자·사용자 그룹·팀·조직에 부여되는 그룹 — 호출자가 요청할 수 있는 모델의 범위"
     },
     "access": {
       "label": "액세스 제어",
       "title": "액세스 제어",
-      "subtitle": "관리자와 로그인 범위, GitHub OAuth 앱, 그리고 Enterprise / Team / Organization 단위로 누가 API 키를 만들 수 있는지 제어"
+      "subtitle": "관리자와 로그인 범위, GitHub OAuth 앱, 그리고 사용자 그룹 / Enterprise / Team / Organization 단위로 누가 API 키를 만들 수 있는지 제어"
     },
     "credits": {
       "label": "AI 크레딧",
       "title": "Copilot AI 크레딧",
       "subtitle": "엔터프라이즈 AI 크레딧 공유 풀, 폴링 주기, 잔여 크레딧이 있는 동안 BYOK를 보류할지 여부"
+    },
+    "users": {
+      "label": "사용자",
+      "title": "사용자와 사용자 그룹",
+      "subtitle": "사용자 이름과 비밀번호로 로그인하는 내장 계정과, 모든 정책에서 연결할 수 있는 사용자 그룹"
     }
   },
   "credits": {
@@ -365,7 +370,8 @@
     "bindingCount_other": "연결 {{count}}건",
     "kind": {
       "github": "GitHub",
-      "local": "로컬"
+      "local": "로컬",
+      "builtin": "내장"
     },
     "table": {
       "login": "로그인 이름",
@@ -423,6 +429,14 @@
       "teamNotAllowed": "키 정책에 따라 이 팀은 API 키를 만들 수 없습니다.",
       "orphan": "미발견",
       "orphanHint": "config.yaml에는 연결되어 있으나 발견된 구조에는 없습니다(직접 입력했거나, 현재 토큰으로는 읽을 수 없는 엔터프라이즈). 설정 자체는 계속 적용됩니다."
+    },
+    "user_groups": {
+      "title": "사용자 그룹 연결",
+      "lead": "<a>사용자 페이지</a>의 내장 사용자 그룹입니다. 연결된 그룹의 멤버는 해당 모델을 사용할 수 있습니다. 소속은 로컬에서 판정하므로 GitHub token 없이도 작동합니다.",
+      "none": "아직 사용자 그룹이 없습니다. 「사용자」 페이지에서 만드세요.",
+      "key": "사용자 그룹",
+      "members": "멤버",
+      "empty": "(멤버 없음)"
     }
   },
   "shell": {
@@ -445,7 +459,9 @@
     "update": {
       "available": "업데이트 {{version}}",
       "title": "버전 {{version}}이(가) 출시되었습니다. 릴리스 노트를 엽니다."
-    }
+    },
+    "builtinAccount": "내장 계정",
+    "userGroup": "사용자 그룹"
   },
   "login": {
     "title": "Model Router 콘솔",
@@ -460,8 +476,11 @@
       "password": "비밀번호",
       "submit": "로그인",
       "hint": "로컬 관리자 계정은 github.com에 연결할 수 없는 경우를 위한 것입니다. config.yaml에 설정되며 GitHub 계정이 아닙니다.",
-      "failed": "사용자 이름 또는 비밀번호가 올바르지 않습니다."
-    }
+      "failed": "사용자 이름 또는 비밀번호가 올바르지 않습니다.",
+      "hintBuiltin": "내장 계정은 관리자가 「사용자」 페이지에서 만듭니다. GitHub 계정이 아닙니다.",
+      "disabled": "이 계정은 비활성화되었습니다. 관리자에게 문의하세요."
+    },
+    "leadLocal": "사용자 이름과 비밀번호로 로그인하세요. 로그인하면 API 키를 만들고 자신의 호출과 사용량을 확인할 수 있으며, 관리자는 사용자, 라우팅 전략, 백엔드 연결도 관리할 수 있습니다."
   },
   "setup": {
     "blocked": {
@@ -488,7 +507,14 @@
     "tooShort": "새 비밀번호는 8자 이상이어야 합니다.",
     "mismatch": "새 비밀번호가 서로 일치하지 않습니다.",
     "submit": "비밀번호를 바꾸고 계속",
-    "recovery": "로그인할 수 없게 되었다면 config.yaml의 auth.local_admin에서 password_hash와 password_salt를 비우면 기본 비밀번호가 다시 적용됩니다."
+    "recovery": "로그인할 수 없게 되었다면 config.yaml의 auth.local_admin에서 password_hash와 password_salt를 비우면 기본 비밀번호가 다시 적용됩니다.",
+    "builtinTitle": "내 비밀번호 정하기",
+    "builtinLead": "이 계정은 관리자가 정한 비밀번호로 만들어졌습니다. 계속하려면 직접 비밀번호를 정하세요.",
+    "builtinRecovery": "비밀번호를 잊으셨나요? 관리자에게 「사용자」 페이지에서 재설정해 달라고 요청하세요.",
+    "changeTitle": "비밀번호 변경",
+    "changeSubmit": "비밀번호 변경",
+    "changeLead": "비밀번호를 바꾸면 다른 곳에서 로그인한 세션은 모두 종료됩니다. 현재 세션은 로그인 상태로 유지됩니다.",
+    "changedToast": "비밀번호를 변경했습니다."
   },
   "usage": {
     "allUsers": "전체 사용자",
@@ -543,7 +569,7 @@
       "policy-disabled": "이 라우터에는 모델 정책이 적용되어 있지 않으므로 <strong>카탈로그의 모든 모델</strong>을 사용할 수 있습니다.",
       "administrator": "당신은 <strong>관리자</strong>입니다. 모델 정책은 권한 경계가 아니라 배포 제어이므로 관리자에게는 적용되지 않고 전체 카탈로그가 그대로 열려 있습니다.",
       "no-binding": "모델 정책은 켜져 있지만 <strong>당신의 계정에 연결된 설정이 없습니다</strong>. 기본 모델 그룹도 없고, 당신에게 닿는 팀·조직 부여도 없습니다. 연결이 없는 계정은 차단이 아니라 무제한으로 처리되므로 전체 카탈로그를 사용할 수 있습니다.",
-      "union": "당신의 목록은 계정·팀·조직을 통해 부여된 모든 모델 그룹의 <strong>합집합</strong>입니다. 부여는 모델을 더할 수만 있고 결코 빼지 않습니다.",
+      "union": "당신의 목록은 계정·사용자 그룹·팀·조직을 통해 부여된 모든 모델 그룹의 <strong>합집합</strong>입니다. 부여는 모델을 더할 수만 있고 결코 빼지 않습니다.",
       "empty-group": "당신에게 부여된 모델 그룹이 모두 <strong>빈 그룹</strong>이라 현재 사용할 수 있는 모델이 없습니다. 관리자가 계정·팀·조직 중 하나에 비어 있지 않은 모델 그룹을 연결할 때까지 요청은 <code>403</code>으로 거부됩니다."
     },
     "blockedBadge": "사용 가능한 모델 없음",
@@ -560,7 +586,8 @@
       "default": "기본 모델 그룹",
       "user": "계정",
       "team": "팀",
-      "organization": "조직"
+      "organization": "조직",
+      "user_group": "사용자 그룹"
     },
     "table": {
       "model": "모델",
@@ -645,7 +672,7 @@
       "grantedVia": "허용 경로",
       "enterpriseParenOpen": " (엔터프라이즈 ",
       "enterpriseParenClose": ")",
-      "deniedExplanation": "<strong>이것이 뜻하는 바</strong>: 로그인해서 이 페이지를 볼 수는 있지만 API 키는 만들 수 없습니다. 키가 없으면 GitHub Copilot BYOK로 이 서비스의 <code>/v1/chat/completions</code>를 호출할 수 없습니다. 사용하려면 아래 근거를 관리자에게 보내 「액세스 제어 → 키 정책」에서 여러분의 조직이나 엔터프라이즈 팀을 허용해 달라고 요청하세요.",
+      "deniedExplanation": "<strong>이것이 뜻하는 바</strong>: 로그인해서 이 페이지를 볼 수는 있지만 API 키는 만들 수 없습니다. 키가 없으면 GitHub Copilot BYOK로 이 서비스의 <code>/v1/chat/completions</code>를 호출할 수 없습니다. 사용하려면 아래 근거를 관리자에게 보내 허용된 사용자 그룹에 추가해 달라고 하거나, 「액세스 제어 → 키 정책」에서 여러분의 조직이나 엔터프라이즈 팀을 허용해 달라고 요청하세요.",
       "table": {
         "enterprise": "엔터프라이즈",
         "scope": "범위",
@@ -659,7 +686,9 @@
         "probe": "프로브",
         "probeHint": "이전 실시간 프로브 결과로 판정했습니다",
         "live": "실시간",
-        "liveHint": "이 요청에서 GitHub를 호출해 판정했습니다 — 이 행은 판정마다 왕복이 발생합니다"
+        "liveHint": "이 요청에서 GitHub를 호출해 판정했습니다 — 이 행은 판정마다 왕복이 발생합니다",
+        "directory": "로컬",
+        "directoryHint": "이 서비스 자체의 사용자 그룹으로 판정했으며 GitHub를 호출하지 않았습니다"
       },
       "reason": {
         "admin": "이 서비스의 관리자이므로 API 키를 바로 만들 수 있습니다.",
@@ -670,7 +699,8 @@
         "memberTeam": "엔터프라이즈 팀 {{name}}(엔터프라이즈 {{enterprise}})의 구성원이므로 API 키를 만들 수 있습니다.",
         "memberEnterprise": "엔터프라이즈 {{name}}의 구성원이므로 API 키를 만들 수 있습니다.",
         "member": "{{name}}(엔터프라이즈 {{enterprise}})의 구성원이므로 API 키를 만들 수 있습니다.",
-        "noMembership": "허용된 엔터프라이즈, 엔터프라이즈 팀, 조직 어디에도 속해 있지 않으므로 API 키를 만들 수 없고 BYOK도 사용할 수 없습니다. 액세스를 요청하려면 관리자에게 소속 조직을 허용 목록에 추가해 달라고 요청하세요."
+        "noMembership": "허용된 사용자 그룹, 엔터프라이즈, 엔터프라이즈 팀, 조직 어디에도 속해 있지 않으므로 API 키를 만들 수 없고 BYOK도 사용할 수 없습니다. 액세스를 요청하려면 관리자에게 허용된 사용자 그룹에 추가하거나 소속 조직을 허용 목록에 추가해 달라고 요청하세요.",
+        "memberUserGroup": "사용자 그룹 {{name}}의 멤버이므로 API 키를 만들 수 있습니다."
       },
       "scanned": "({{count}}개 탐색)",
       "scannedTruncated": "({{count}}개 탐색, 이후 생략)",
@@ -711,14 +741,15 @@
       "verdict": {
         "admin": "관리자는 모든 키에 범위를 설정할 수 있습니다.",
         "off": "이 배포에서는 API 키 범위 좁히기가 켜져 있지 않으므로 모든 키가 모든 모델과 모든 연결 유형을 포함합니다. 관리자에게 문의하세요.",
-        "nobodyAllowed": "API 키 범위 좁히기는 켜져 있지만 관리자가 아직 어떤 사용자, 팀, 조직도 허용하지 않았으므로 모든 키가 모든 모델과 모든 연결 유형을 포함합니다. 관리자에게 문의하세요.",
+        "nobodyAllowed": "API 키 범위 좁히기는 켜져 있지만 관리자가 아직 어떤 사용자, 사용자 그룹, 팀, 조직도 허용하지 않았으므로 모든 키가 모든 모델과 모든 연결 유형을 포함합니다. 관리자에게 문의하세요.",
         "levelsFailed": "API 키의 범위를 좁힐 수 없습니다. 관리자가 {{levels}} 수준의 일치를 요구하지만 해당되지 않습니다. 만드는 모든 키는 모든 모델과 모든 연결 유형을 포함합니다. 관리자에게 문의하세요.",
         "allowed": "API 키를 특정 모델이나 특정 연결 유형으로 제한할 수 있습니다."
       },
       "levelName": {
         "user": "사용자",
         "team": "팀",
-        "organization": "조직"
+        "organization": "조직",
+        "user_group": "사용자 그룹"
       }
     }
   },
@@ -740,7 +771,7 @@
       },
       "policy": {
         "label": "키 정책",
-        "hint": "Enterprise / Team / Organization 단위로 누가 키를 만들 수 있는지 제어"
+        "hint": "사용자 그룹 / Enterprise / Team / Organization 단위로 누가 키를 만들 수 있는지 제어"
       },
       "keyscope": {
         "label": "키 범위",
@@ -752,7 +783,8 @@
       "team": "엔터프라이즈 팀",
       "enterprise": "엔터프라이즈 직속 멤버",
       "org-scan": "조직 일괄 탐색",
-      "admin": "서비스 관리자"
+      "admin": "서비스 관리자",
+      "user_group": "사용자 그룹"
     },
     "admins": {
       "title": "관리자",
@@ -837,11 +869,11 @@
       "title": "키 생성 정책",
       "enabled": "켜짐",
       "disabled": "꺼짐",
-      "toggle": "지정한 엔터프라이즈 / 조직의 사용자만 API 키를 만들 수 있도록 허용",
-      "enabledNote": "켜짐: 일반 사용자가 키를 만들 때 엔터프라이즈와 조직 소속을 GitHub에 실시간으로 확인하며, 허용된 범위에 속하지 않는 사용자는 거부됩니다(403). 따라서 BYOK도 사용할 수 없습니다. 관리자는 이 제한을 받지 않습니다.",
+      "toggle": "지정한 사용자 그룹 / 엔터프라이즈 / 조직의 사용자만 API 키를 만들 수 있도록 허용",
+      "enabledNote": "켜짐: 일반 사용자가 키를 만들 때 먼저 소속 사용자 그룹을 확인하고, 이어서 엔터프라이즈와 조직 소속을 GitHub에 확인하며, 허용된 범위에 속하지 않는 사용자는 거부됩니다(403). 따라서 BYOK도 사용할 수 없습니다. 관리자는 이 제한을 받지 않습니다.",
       "disabledNote": "꺼짐: <strong>로그인할 수 있는 GitHub 계정이라면 누구나 API 키를 만들고 BYOK를 사용할 수 있습니다</strong>. 위의 「아무 GitHub 계정이나 로그인 허용」도 켜져 있다면 GitHub 전체에 열어 두는 것과 같습니다.",
       "missingTokenBadge": "token 없음",
-      "missingTokenNote": "정책은 켜져 있지만 Enterprise token이 설정되지 않아 소속을 확인할 수 없으므로, <strong>현재 관리자가 아닌 모든 키 생성 요청을 거부합니다</strong>. 아래에 token을 입력하세요.",
+      "missingTokenNote": "정책은 켜져 있지만 Enterprise token이 설정되지 않았고 허용된 사용자 그룹도 없어 소속을 확인할 수 없으므로, <strong>현재 관리자가 아닌 모든 키 생성 요청을 거부합니다</strong>. 아래에서 사용자 그룹을 허용하거나 token을 입력하세요.",
       "tokenTitle": "GitHub Enterprise 관리자 token",
       "tokenOk": "유효",
       "tokenBad": "이상",
@@ -884,18 +916,23 @@
       "allowedTeamsHint": "멤버 판정은 팀의 숫자 id로 합니다(GitHub은 id만 받습니다). 화면과 사용자 쪽에는 팀 이름을 표시합니다",
       "teamListUnavailable": "팀 목록을 사용할 수 없습니다",
       "teamListUnavailableNote": "— 이 엔터프라이즈는 조직 단위로만 허용할 수 있습니다.",
-      "noTeams": "이 엔터프라이즈에는 엔터프라이즈 팀이 없습니다."
+      "noTeams": "이 엔터프라이즈에는 엔터프라이즈 팀이 없습니다.",
+      "userGroups": {
+        "title": "허용된 사용자 그룹",
+        "lead": "선택한 그룹의 멤버는 API 키를 만들 수 있습니다. 그룹은 <a>사용자 페이지</a>에서 관리하며 내장 사용자와 GitHub 계정을 포함할 수 있습니다. 모든 엔터프라이즈 규칙보다 먼저 판정되며 GitHub token이 필요 없습니다.",
+        "none": "아직 사용자 그룹이 없습니다. 「사용자」 페이지에서 만드세요."
+      }
     },
     "keyscope": {
       "title": "API 키 범위 좁히기",
       "on": "아래 계정에 허용",
       "off": "아무도 허용하지 않음",
-      "toggle": "아래 사용자, 팀, 조직이 자신의 API 키를 제한할 수 있도록 허용",
+      "toggle": "아래 사용자, 사용자 그룹, 팀, 조직이 자신의 API 키를 제한할 수 있도록 허용",
       "onNote": "누가 제한할 수 있는지는 아래 세 표가 결정합니다. 그 외 계정이 만드는 키는 <strong>모든 모델과 모든 연결 유형</strong>을 포함합니다.",
       "offNote": "아무도 키를 제한할 수 없습니다. 모든 키가 <strong>모든 모델과 모든 연결 유형</strong>을 포함하며, 이는 범위 기능이 생기기 전 모든 키의 동작과 같으므로 꺼 둔다고 해서 잃는 것은 없습니다.",
       "why": "값비싼 모델 하나로 키를 제한하면 <strong>그 키의 모든 요청이 해당 모델에 고정됩니다</strong>. 저렴한 작업을 저렴한 모델로 보낸다는 전제가 그 키에서는 성립하지 않습니다. 이 설정은 그 비용을 막기 위한 것입니다.",
       "emptyBadge": "해당자가 없음",
-      "empty": "켜져 있지만 세 표가 모두 비어 있어 아직 아무도 키를 제한할 수 없습니다. 사용자, 팀 또는 조직을 최소 하나 추가하세요.",
+      "empty": "켜져 있지만 모든 표가 비어 있어 아직 아무도 키를 제한할 수 없습니다. 사용자, 사용자 그룹, 팀 또는 조직을 최소 하나 추가하세요.",
       "ruleAnd": "입력한 표는 <strong>모두 일치해야 합니다</strong>. 두 개를 입력하면 둘 다 일치해야 합니다.",
       "ruleAbstain": "비어 있는 표는 <strong>판단에 사용되지 않습니다</strong>. 조직만 입력하면 그 조직의 모든 사람이 허용됩니다.",
       "ruleOr": "같은 표 안에서는 하나만 일치하면 됩니다.",
@@ -932,7 +969,8 @@
         "orgNotAllowed": "키 정책에 따라 이 조직은 API 키를 만들 수 없습니다.",
         "teamNotAllowed": "키 정책에 따라 이 팀은 API 키를 만들 수 없습니다.",
         "userNotAllowed": "키 정책에 따라 이 계정은 API 키를 만들 수 없으므로 범위를 좁힐 키도 없습니다.",
-        "unknown": "이 계정이 API 키를 만들 수 있는지 확인할 수 없어 숨기지 않고 표시합니다."
+        "unknown": "이 계정이 API 키를 만들 수 있는지 확인할 수 없어 숨기지 않고 표시합니다.",
+        "groupNotAllowed": "이 사용자 그룹은 키 정책에 따라 API 키를 만들 수 없습니다."
       },
       "table": {
         "source": "출처",
@@ -968,6 +1006,17 @@
         "addTitle": "조직 추가",
         "prompt": "조직 로그인.",
         "noneEligible": "키 정책에 따라 API 키를 만들 수 있는 조직이 없어 여기서 허용할 대상이 없습니다. 액세스 제어 → 키 정책에서 허용하거나 조직을 직접 추가하세요."
+      },
+      "user_groups": {
+        "title": "사용자 그룹",
+        "lead": "「사용자」 페이지의 내장 사용자 그룹입니다. 멤버가 자신의 키를 제한할 수 있는 그룹을 선택하세요.",
+        "key": "사용자 그룹",
+        "none": "아직 사용자 그룹이 없습니다. 「사용자」 페이지에서 만드세요.",
+        "search": "그룹 검색",
+        "addTitle": "사용자 그룹 추가",
+        "prompt": "멤버가 자신의 키를 제한할 수 있는 사용자 그룹의 이름.",
+        "noneEligible": "키 정책에 따라 API 키를 만들 수 있는 사용자 그룹이 없어 여기서 허용할 대상이 없습니다. 액세스 제어 → 키 정책에서 허용하세요.",
+        "source_other": "사용자 그룹 · 멤버 {{count}}명"
       }
     }
   },
@@ -1407,6 +1456,130 @@
       "defaultNote": "앞에서 결정되지 않았을 때 사용",
       "unused": "이 전략에서는 사용하지 않음",
       "noModel": "설정되지 않음"
+    }
+  },
+  "users": {
+    "section": {
+      "users": {
+        "label": "사용자",
+        "hint": "사용자 이름과 비밀번호로 로그인하는 내장 계정"
+      },
+      "groups": {
+        "label": "사용자 그룹",
+        "hint": "내장 사용자와 GitHub 계정으로 이루어진 이름 있는 묶음으로, 모든 정책에서 팀처럼 연결할 수 있습니다"
+      }
+    },
+    "noMatch": "\"{{query}}\"와(과) 일치하는 항목이 없습니다.",
+    "kind": {
+      "builtin": "내장",
+      "github": "GitHub"
+    },
+    "users": {
+      "title": "내장 사용자",
+      "count_other": "사용자 {{count}}명",
+      "search": "사용자 검색",
+      "new": "새 사용자",
+      "lead": "GitHub가 아니라 이 서비스 안에 있는 계정입니다. 로그인 페이지에서 <strong>사용자 이름과 비밀번호</strong>로 로그인하며, GitHub 계정과 마찬가지로 API 키, 호출 추적, 사용량을 이용할 수 있습니다. 여기서 바꾼 내용은 즉시 적용되며 따로 저장할 필요가 없습니다.",
+      "none": "아직 내장 사용자가 없습니다. 만들면 GitHub 없이도 로그인할 수 있습니다.",
+      "table": {
+        "user": "사용자",
+        "role": "역할",
+        "status": "상태",
+        "groups": "그룹",
+        "keys": "API 키",
+        "lastSeen": "마지막 로그인"
+      },
+      "statusActive": "활성",
+      "statusDisabled": "비활성",
+      "mustChange": "비밀번호 변경 필요",
+      "mustChangeHint": "이 사용자는 다음 로그인 때 다른 작업을 하기 전에 새 비밀번호를 정해야 합니다.",
+      "neverSignedIn": "없음",
+      "edit": "편집",
+      "resetPassword": "비밀번호 재설정",
+      "enable": "활성화",
+      "disable": "비활성화",
+      "notYourself": "자신의 계정에는 이 작업을 할 수 없습니다.",
+      "disableTitle": "{{name}}을(를) 비활성화할까요?",
+      "disableMessage_other": "즉시 로그아웃되고 로그인할 수 없으며, 계정이 다시 활성화될 때까지 API 키 {{count}}개도 작동하지 않습니다.",
+      "disabledToast": "{{name}}을(를) 비활성화했습니다.",
+      "enabledToast": "{{name}}을(를) 다시 활성화했습니다.",
+      "deleteTitle": "{{name}}을(를) 삭제할까요?",
+      "deleteMessage_other": "<strong>{{name}}</strong>은(는) 모든 그룹에서 제거되고 로그아웃되며, API 키 {{count}}개가 삭제됩니다. 호출 추적은 남습니다. 이 작업은 되돌릴 수 없습니다.",
+      "deletedToast": "{{name}}을(를) 삭제했습니다.",
+      "createdToast": "{{name}}을(를) 만들었습니다. 사용자 이름과 정한 비밀번호를 본인에게 알려 주세요.",
+      "savedToast": "{{name}}을(를) 저장했습니다.",
+      "resetToast": "{{name}}의 비밀번호를 재설정하고 모든 세션을 로그아웃했습니다.",
+      "howTitle": "내장 사용자의 동작 방식",
+      "howSignIn": "<strong>로그인.</strong> 활성화된 내장 사용자가 한 명이라도 있으면 로그인 페이지에 사용자 이름과 비밀번호 양식이 표시되며, GitHub도 설정되어 있으면 함께 표시됩니다.",
+      "howPolicies": "<strong>권한.</strong> 내장 사용자는 GitHub 로그인처럼 연결됩니다. 모델 정책과 키 범위에서는 이름으로, 모델 정책, 키 정책, 키 범위에서는 소속 사용자 그룹을 통해 연결됩니다. GitHub 조직과 팀은 내장 사용자에게 적용되지 않습니다.",
+      "howNames": "<strong>이름.</strong> 이미 다른 사람을 가리키는 이름은 사용할 수 없습니다. 로컬 관리자, admin_logins에 있는 GitHub 관리자, 로그인한 적이 있는 GitHub 계정이 이에 해당합니다. 반대로 내장 사용자와 같은 이름의 GitHub 계정은 로그인이 거부됩니다.",
+      "howDisable": "<strong>비활성화와 재설정.</strong> 계정을 비활성화하면 콘솔 세션과 API 키가 즉시 중지됩니다. 비밀번호를 재설정하면 해당 계정의 모든 세션이 로그아웃됩니다."
+    },
+    "form": {
+      "createTitle": "새 내장 사용자",
+      "editTitle": "{{name}} 편집",
+      "create": "만들기",
+      "save": "저장",
+      "username": "사용자 이름",
+      "usernameHint": "영문자, 숫자, '.', '_', '-'; 나중에 바꿀 수 없습니다",
+      "usernameFixed": "변경할 수 없음",
+      "usernameInvalid": "영문자, 숫자, '.', '_', '-'로 1–64자를 사용하고, 영문자나 숫자로 시작하세요.",
+      "displayName": "표시 이름",
+      "email": "이메일",
+      "emailHint": "선택 사항, 기록용",
+      "password": "비밀번호",
+      "passwordHint": "{{count}}자 이상",
+      "confirm": "비밀번호 확인",
+      "isAdmin": "관리자",
+      "isAdminHint": "관리자는 이 서비스를 관리합니다. 라우팅, 연결, 정책, 사용자, 그리고 모든 사용자의 호출 추적이 대상입니다.",
+      "isAdminSelf": "자신의 계정입니다. 자신의 관리자 역할은 해제할 수 없습니다.",
+      "mustChange": "다음 로그인 때 새 비밀번호 요구",
+      "mustChangeHint": "비밀번호를 직접 정했다면 권장합니다. 사용자가 본인만 아는 비밀번호로 바꾸게 됩니다.",
+      "groups": "사용자 그룹",
+      "noGroups": "아직 사용자 그룹이 없습니다. 「사용자 그룹」 탭에서 만드세요."
+    },
+    "reset": {
+      "title": "{{name}}의 비밀번호 재설정",
+      "submit": "비밀번호 재설정",
+      "lead": "이 계정의 모든 세션이 로그아웃됩니다. 새 비밀번호는 신뢰할 수 있는 경로로 사용자에게 전달하세요."
+    },
+    "groups": {
+      "title": "사용자 그룹",
+      "count_other": "그룹 {{count}}개",
+      "new": "새 그룹",
+      "lead": "사용자 그룹은 로그인의 이름 있는 묶음으로, <strong>내장 사용자와 GitHub 계정 모두</strong> 넣을 수 있습니다. 각 정책은 GitHub 팀을 연결하듯 그룹을 연결할 수 있으며, 소속은 이 서비스에서 판정하므로 GitHub token이 필요 없습니다.",
+      "none": "아직 사용자 그룹이 없습니다.",
+      "memberCount_other": "멤버 {{count}}명",
+      "empty": "아직 멤버가 없습니다.",
+      "usedModel": "모델 그룹: {{group}}",
+      "usedModelHint": "모델 정책에 연결됨",
+      "usedKeyPolicy": "키 생성 가능",
+      "usedKeyScope": "키 제한 가능",
+      "deleteTitle": "그룹 {{name}}을(를) 삭제할까요?",
+      "deleteMessage": "멤버 계정은 그대로 남고 그룹만 삭제됩니다.",
+      "deleteUsed": "멤버 계정은 그대로 남고 그룹만 삭제됩니다. 그룹은 모델 정책, 키 정책, 키 범위에서도 제거되므로 그룹이 멤버에게 부여하던 권한은 더 이상 적용되지 않습니다.",
+      "deletedToast": "그룹 {{name}}을(를) 삭제했습니다.",
+      "savedToast": "그룹 {{name}}을(를) 저장했습니다.",
+      "createTitle": "새 사용자 그룹",
+      "editTitle": "그룹 {{name}} 편집",
+      "name": "그룹 이름",
+      "nameHint": "영문자, 숫자, '.', '_', '-'; 나중에 바꿀 수 없습니다",
+      "nameInvalid": "영문자, 숫자, '.', '_', '-'로 1–64자를 사용하고, 영문자나 숫자로 시작하세요.",
+      "description": "설명",
+      "builtinMembers": "내장 사용자",
+      "selected_other": "멤버 {{count}}명 선택됨",
+      "noBuiltin": "아직 내장 사용자가 없습니다.",
+      "githubMembers": "GitHub 계정",
+      "githubMembersHint": "로그인한 적이 있는 계정입니다. 아직 로그인하지 않은 계정은 아래에 로그인을 입력해 추가하세요",
+      "noGithub": "아직 로그인한 GitHub 계정이 없습니다.",
+      "typePlaceholder": "GitHub 로그인, 예: octocat",
+      "add": "추가",
+      "badLogin": "\"{{name}}\"은(는) 올바른 로그인이 아닙니다.",
+      "whereTitle": "그룹이 쓰이는 곳",
+      "whereModels": "<strong><a>모델 정책</a></strong>: 사용자 그룹에 모델 그룹을 연결하면 멤버가 그 모델을 사용할 수 있으며, 다른 모든 부여와 합집합이 됩니다.",
+      "whereKeys": "<strong><a>액세스 제어 → 키 정책</a></strong>: 허용된 그룹의 멤버는 API 키를 만들 수 있습니다. 가장 먼저 판정되며 GitHub token이 필요 없습니다.",
+      "whereScope": "<strong><a>액세스 제어 → 키 범위</a></strong>: 키를 제한할 수 있는 사람 중 사용자 그룹 단계입니다.",
+      "whereSignIn": "<strong>GitHub 로그인</strong>: <code>allow_any_github_user</code>가 꺼져 있어도 사용자 그룹에 속한 GitHub 계정은 로그인할 수 있습니다."
     }
   }
 }
