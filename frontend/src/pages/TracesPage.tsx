@@ -887,6 +887,11 @@ export default function TracesPage({ user }: { user: SessionUser }) {
                       {t('traces.list.background')}
                     </span>
                   )}
+                  {row.interaction_type === 'console-assistant' && (
+                    <span className="badge" title={t('traces.list.assistantHint')} style={{ marginRight: 6 }}>
+                      {t('traces.list.assistant')}
+                    </span>
+                  )}
                   {row.prompt_preview}
                 </td>
                 {user.is_admin && (

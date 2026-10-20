@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import Assistant from './components/Assistant'
 import Shell from './components/Shell'
 import {
   getAuthStatus,
@@ -274,6 +275,9 @@ export default function App() {
         <Route path="/users/:section" element={admin(<UsersPage user={user} />)} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      {/* Outside <Routes>, so the conversation survives a jump to the page it linked to. Keyed on
+          the login so a different account never sees the previous one's chat or key. */}
+      <Assistant key={user.login} user={user} />
     </Shell>
   )
 }

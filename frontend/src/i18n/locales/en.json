@@ -1071,7 +1071,9 @@
       "empty": "No calls recorded yet — send one from the Playground",
       "emptyFiltered": "No traces match these filters — widen them or clear the filters",
       "background": "background",
-      "backgroundHint": "A task the client runs for itself (for example Copilot CLI checking whether you sound frustrated), not a question you asked. Routed to the default model without a decision."
+      "backgroundHint": "A task the client runs for itself (for example Copilot CLI checking whether you sound frustrated), not a question you asked. Routed to the default model without a decision.",
+      "assistant": "AI assistant",
+      "assistantHint": "A question asked through the console's AI assistant."
     },
     "filter": {
       "date": "Date",
@@ -1627,6 +1629,33 @@
       "whereKeys": "<strong><a>Access control → Key policy</a></strong>: members of an allowed group may create API keys. Checked first, with no GitHub token needed.",
       "whereScope": "<strong><a>Access control → Key scope</a></strong>: the user group level of who may narrow a key.",
       "whereSignIn": "<strong>GitHub sign-in</strong>: with <code>allow_any_github_user</code> off, a GitHub account that is a member of any user group may still sign in."
+    }
+  },
+  "assistant": {
+    "open": "Ask the AI assistant",
+    "title": "AI assistant",
+    "changeKey": "Change the API key the assistant uses",
+    "clear": "New chat",
+    "stopped": "(stopped)",
+    "thinking": "Thinking…",
+    "via": "via {{model}}",
+    "trace": "trace",
+    "placeholder": "Ask anything about Model Router… (Enter to send, Shift+Enter for a new line)",
+    "send": "Send",
+    "stop": "Stop",
+    "welcome": "Ask me where a feature is, how to configure something, or why a request went where it did. I answer with links straight to the right page.",
+    "suggest": {
+      "copilot": "How do I connect GitHub Copilot to this router?",
+      "models": "Which models can I use, and why?",
+      "why": "How do I see why a request went to a particular model?"
+    },
+    "setup": {
+      "title": "Choose an API key for the assistant",
+      "lead": "The assistant asks this router itself, with one of your own API keys, so its questions are routed and recorded in your traces like any other request.",
+      "pick": "Your keys",
+      "create": "Create a key for the assistant",
+      "createAnother": "Create a new key for the assistant",
+      "note": "The choice is remembered in this browser. Questions count towards your usage like any other request."
     }
   }
 }

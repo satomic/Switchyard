@@ -1047,7 +1047,9 @@
       "empty": "아직 호출 기록이 없습니다 — 「플레이그라운드」에서 요청을 하나 보내 보세요",
       "emptyFiltered": "현재 필터 조건에 맞는 추적이 없습니다 — 조건을 넓히거나 필터를 비우세요",
       "background": "백그라운드",
-      "backgroundHint": "클라이언트가 스스로 실행하는 작업(예: Copilot CLI가 사용자의 불만 여부를 판단하는 요청)으로, 사용자가 한 질문이 아닙니다. 라우팅 결정 없이 기본 모델을 사용합니다."
+      "backgroundHint": "클라이언트가 스스로 실행하는 작업(예: Copilot CLI가 사용자의 불만 여부를 판단하는 요청)으로, 사용자가 한 질문이 아닙니다. 라우팅 결정 없이 기본 모델을 사용합니다.",
+      "assistant": "AI 어시스턴트",
+      "assistantHint": "콘솔의 AI 어시스턴트로 보낸 질문입니다."
     },
     "filter": {
       "date": "날짜",
@@ -1583,6 +1585,33 @@
       "whereKeys": "<strong><a>액세스 제어 → 키 정책</a></strong>: 허용된 그룹의 멤버는 API 키를 만들 수 있습니다. 가장 먼저 판정되며 GitHub token이 필요 없습니다.",
       "whereScope": "<strong><a>액세스 제어 → 키 범위</a></strong>: 키를 제한할 수 있는 사람 중 사용자 그룹 단계입니다.",
       "whereSignIn": "<strong>GitHub 로그인</strong>: <code>allow_any_github_user</code>가 꺼져 있어도 사용자 그룹에 속한 GitHub 계정은 로그인할 수 있습니다."
+    }
+  },
+  "assistant": {
+    "open": "AI 어시스턴트에게 묻기",
+    "title": "AI 어시스턴트",
+    "changeKey": "어시스턴트가 사용할 API 키 변경",
+    "clear": "새 대화",
+    "stopped": "(중지됨)",
+    "thinking": "생각하는 중…",
+    "via": "{{model}} 응답",
+    "trace": "트레이스",
+    "placeholder": "Model Router에 대해 무엇이든 물어보세요… (Enter 전송, Shift+Enter 줄바꿈)",
+    "send": "보내기",
+    "stop": "중지",
+    "welcome": "기능이 어디에 있는지, 설정 방법, 요청이 왜 그 모델로 라우팅되었는지 물어보세요. 해당 페이지로 바로 가는 링크와 함께 답합니다.",
+    "suggest": {
+      "copilot": "GitHub Copilot을 이 라우터에 연결하려면?",
+      "models": "어떤 모델을 쓸 수 있고, 왜인가요?",
+      "why": "요청이 왜 특정 모델로 라우팅되었는지 어떻게 확인하나요?"
+    },
+    "setup": {
+      "title": "어시스턴트가 사용할 API 키 선택",
+      "lead": "어시스턴트는 사용자 본인의 API 키로 이 라우터 자체에 질문합니다. 그래서 질문은 다른 요청처럼 라우팅되고 사용자의 트레이스에 기록됩니다.",
+      "pick": "내 키",
+      "create": "어시스턴트용 키 만들기",
+      "createAnother": "어시스턴트용 키 새로 만들기",
+      "note": "선택은 이 브라우저에 저장됩니다. 질문은 다른 요청과 마찬가지로 사용량에 포함됩니다."
     }
   }
 }

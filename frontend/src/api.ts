@@ -23,6 +23,8 @@ export interface TraceSummary {
   /** A task the client ran for itself (e.g. Copilot CLI's background classifier), not a question
    *  the person asked. Routed to the default model without a decision. */
   background?: boolean
+  /** The client's own label for the request; 'console-assistant' for the console's help assistant. */
+  interaction_type?: string | null
 }
 
 export interface RuleStep {
@@ -1293,4 +1295,64 @@ export async function updateDirectoryGroup(
 
 export async function deleteDirectoryGroup(name: string): Promise<{ ok: boolean }> {
   return json(`/v1/directory/groups/${encodeURIComponent(name)}`, { method: 'DELETE' })
+}
+
+// ── Console AI assistant ─────────────────────────────────────────
+export interface AssistantTurn {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+/** Ask the router itself, with the user's own key: the assistant's questions are routed, policed
+ *  and traced like any other request. Streams the answer through onDelta and resolves with what the
+ *  router reported about the call. */
+export async function askAssistant(opts: {
+  apiKey: string
+  system: string
+  history: AssistantTurn[]
+  conversationId: string
+  onDelta: (text: string) => void
+  signal?: AbortSignal
+}): Promise<{ model: string; traceId: string; reason: string }> {
+  const res = await ensureOk(
+    await req('/v1/chat/completions', {
+      method: 'POST',
+      signal: opts.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${opts.apiKey}`,
+        // One id per assistant conversation; the router narrows it to each question, so every
+        // question gets its own routing decision and trace.
+        'x-interaction-id': opts.conversationId,
+        'x-interaction-type': 'console-assistant',
+      },
+      body: JSON.stringify({
+        model: 'auto',
+        stream: true,
+        messages: [{ role: 'system', content: opts.system }, ...opts.history],
+      }),
+    }),
+  )
+  const reader = res.body!.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+    for (const line of lines) {
+      if (!line.startsWith('data: ') || line === 'data: [DONE]') continue
+      try {
+        const delta = JSON.parse(line.slice(6)).choices?.[0]?.delta?.content
+        if (delta) opts.onDelta(delta)
+      } catch { /* an incomplete chunk; the next read completes it */ }
+    }
+  }
+  return {
+    model: res.headers.get('x-routed-model') ?? '',
+    traceId: res.headers.get('x-trace-id') ?? '',
+    reason: res.headers.get('x-router-reason') ?? '',
+  }
 }

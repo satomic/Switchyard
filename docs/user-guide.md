@@ -110,6 +110,20 @@ behind it refuse a non-administrator session regardless of what the browser asks
 
 ![Standard user navigation](images/19-user-sidenav.png)
 
+**The AI assistant.** The ✦ button in the bottom-right corner of every page opens a help chat. Ask it
+where a feature is, how to configure something, or what a message means; its answers link straight to
+the right page, and following a link keeps the conversation open. It only links to pages you can open:
+a standard user asking about an administrator setting is told to ask an administrator.
+
+![The AI assistant](images/26-assistant.png)
+
+The assistant asks this router itself, with one of your own API keys. The first time you open it, it
+asks you to pick a key or creates one for it (`console-assistant`); the choice is remembered in your
+browser, and the key name in its header changes it. Its questions are routed like any other request,
+count towards your usage, and appear in your traces labelled **AI assistant**. Each question sends
+the assistant's product knowledge along (about 8,000 prompt tokens). If key creation is not allowed
+for your account, the assistant says why and points to the API keys page.
+
 ---
 
 ## 2. Administrator guide

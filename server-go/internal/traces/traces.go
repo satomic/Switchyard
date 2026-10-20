@@ -94,6 +94,8 @@ func summarize(trace *omap.Map) *omap.Map {
 		"prompt_preview", trace.Value("prompt_preview"),
 		// A task the client ran for itself (Copilot's background classifiers), not a question.
 		"background", trace.Bool("background", false),
+		// The client's own label (e.g. console-assistant for the console's help assistant).
+		"interaction_type", trace.Value("interaction_type"),
 	)
 }
 

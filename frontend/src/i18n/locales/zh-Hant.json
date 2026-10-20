@@ -1047,7 +1047,9 @@
       "empty": "尚無呼叫記錄 — 到「測試台」發一條請求試試",
       "emptyFiltered": "沒有符合目前篩選條件的鏈路 — 放寬條件或清空篩選",
       "background": "背景",
-      "backgroundHint": "用戶端自行發起的背景任務（例如 Copilot CLI 判斷你是否不滿），不是你提出的問題。不做路由決策，直接使用預設模型。"
+      "backgroundHint": "用戶端自行發起的背景任務（例如 Copilot CLI 判斷你是否不滿），不是你提出的問題。不做路由決策，直接使用預設模型。",
+      "assistant": "AI 助手",
+      "assistantHint": "透過主控台 AI 助手提出的問題。"
     },
     "filter": {
       "date": "日期",
@@ -1583,6 +1585,33 @@
       "whereKeys": "<strong><a>存取控制 → 金鑰策略</a></strong>：已開放群組的成員可以建立 API 金鑰。最先判定，無需 GitHub token。",
       "whereScope": "<strong><a>存取控制 → 金鑰範圍</a></strong>：「誰可以縮小金鑰範圍」中的使用者群組一級。",
       "whereSignIn": "<strong>GitHub 登入</strong>：關閉 <code>allow_any_github_user</code> 時，屬於任一使用者群組的 GitHub 帳號仍然可以登入。"
+    }
+  },
+  "assistant": {
+    "open": "問問 AI 助手",
+    "title": "AI 助手",
+    "changeKey": "更換助手使用的 API 密鑰",
+    "clear": "新對話",
+    "stopped": "（已停止）",
+    "thinking": "思考中…",
+    "via": "由 {{model}} 回答",
+    "trace": "呼叫鏈路",
+    "placeholder": "關於 Model Router 的任何問題…（Enter 傳送，Shift+Enter 換行）",
+    "send": "傳送",
+    "stop": "停止",
+    "welcome": "可以問我某個功能在哪裡、某項設定怎麼做，或者某個請求為什麼被路由到某個模型。我會給出直達對應頁面的連結。",
+    "suggest": {
+      "copilot": "怎麼把 GitHub Copilot 接到這個路由器？",
+      "models": "我能用哪些模型？為什麼？",
+      "why": "怎麼查看某個請求為什麼被路由到某個模型？"
+    },
+    "setup": {
+      "title": "為 AI 助手選擇一個 API 密鑰",
+      "lead": "助手透過本路由器自身來回答，使用你自己的 API 密鑰，所以它的提問會像其他請求一樣經過路由，並記錄在你的呼叫鏈路中。",
+      "pick": "你的密鑰",
+      "create": "為助手建立一個密鑰",
+      "createAnother": "為助手新建一個密鑰",
+      "note": "選擇會記在目前的瀏覽器中。助手的提問和其他請求一樣計入你的用量。"
     }
   }
 }

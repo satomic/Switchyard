@@ -1047,7 +1047,9 @@
       "empty": "暂无调用记录 — 到「测试台」发一条请求试试",
       "emptyFiltered": "没有符合当前筛选条件的链路 — 放宽条件或清空筛选",
       "background": "后台",
-      "backgroundHint": "客户端自己发起的后台任务（例如 Copilot CLI 判断你是否不满），不是你提的问题。不做路由决策，直接使用默认模型。"
+      "backgroundHint": "客户端自己发起的后台任务（例如 Copilot CLI 判断你是否不满），不是你提的问题。不做路由决策，直接使用默认模型。",
+      "assistant": "AI 助手",
+      "assistantHint": "通过控制台 AI 助手提出的问题。"
     },
     "filter": {
       "date": "日期",
@@ -1583,6 +1585,33 @@
       "whereKeys": "<strong><a>访问控制 → 密钥策略</a></strong>：被放开的用户组的成员可以创建 API 密钥。最先判定，无需 GitHub token。",
       "whereScope": "<strong><a>访问控制 → 密钥作用域</a></strong>：“谁可以缩小密钥作用域”中的用户组一级。",
       "whereSignIn": "<strong>GitHub 登录</strong>：关闭 <code>allow_any_github_user</code> 时，属于任一用户组的 GitHub 账号仍然可以登录。"
+    }
+  },
+  "assistant": {
+    "open": "问问 AI 助手",
+    "title": "AI 助手",
+    "changeKey": "更换助手使用的 API 密钥",
+    "clear": "新对话",
+    "stopped": "（已停止）",
+    "thinking": "思考中…",
+    "via": "由 {{model}} 回答",
+    "trace": "调用链路",
+    "placeholder": "关于 Model Router 的任何问题…（Enter 发送，Shift+Enter 换行）",
+    "send": "发送",
+    "stop": "停止",
+    "welcome": "可以问我某个功能在哪里、某项配置怎么做，或者某个请求为什么被路由到某个模型。我会给出直达对应页面的链接。",
+    "suggest": {
+      "copilot": "怎么把 GitHub Copilot 接到这个路由器？",
+      "models": "我能用哪些模型？为什么？",
+      "why": "怎么查看某个请求为什么被路由到某个模型？"
+    },
+    "setup": {
+      "title": "为 AI 助手选择一个 API 密钥",
+      "lead": "助手通过本路由器自身来回答，使用你自己的 API 密钥，所以它的提问会像其他请求一样经过路由，并记录在你的调用链路中。",
+      "pick": "你的密钥",
+      "create": "为助手创建一个密钥",
+      "createAnother": "为助手新建一个密钥",
+      "note": "选择会记在当前浏览器中。助手的提问和其他请求一样计入你的用量。"
     }
   }
 }
