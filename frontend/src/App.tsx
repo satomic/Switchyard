@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Assistant from './components/Assistant'
+import ErrorBoundary from './components/ErrorBoundary'
 import Shell from './components/Shell'
 import {
   getAuthStatus,
@@ -276,8 +277,11 @@ export default function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       {/* Outside <Routes>, so the conversation survives a jump to the page it linked to. Keyed on
-          the login so a different account never sees the previous one's chat or key. */}
-      <Assistant key={user.login} user={user} />
+          the login so a different account never sees the previous one's chat or key. Behind an
+          error boundary: an optional widget must never be able to blank the console. */}
+      <ErrorBoundary name="AI assistant">
+        <Assistant key={user.login} user={user} />
+      </ErrorBoundary>
     </Shell>
   )
 }

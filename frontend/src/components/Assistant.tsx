@@ -41,6 +41,14 @@ function save(storage: Storage, name: string, value: unknown) {
  *  was stored cannot be read back, so they cannot be sent). */
 const usable = (k: ApiKey) => !k.disabled && Boolean(k.key)
 
+/** A random conversation id. Not crypto.randomUUID(): that exists only in a secure context (HTTPS
+ *  or localhost), and a router reached as http://<ip>:<port> is not one -- calling it there threw
+ *  during render and blanked the whole console. getRandomValues has no such restriction. */
+function newConversationId(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
 /** The floating help assistant: a button in the bottom-right corner of every console page, and a
  *  chat that answers questions about Model Router with links straight to the right page.
  *
@@ -55,7 +63,7 @@ export default function Assistant({ user }: { user: SessionUser }) {
   const [keyId, setKeyId] = useState<string>(() => load(localStorage, keyStore(user.login), ''))
   const [choosing, setChoosing] = useState(false)
   const [turns, setTurns] = useState<Turn[]>(() => load(sessionStorage, chatStore(user.login), []))
-  const [conversation, setConversation] = useState(() => crypto.randomUUID())
+  const [conversation, setConversation] = useState(newConversationId)
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [setupError, setSetupError] = useState('')
@@ -146,7 +154,7 @@ export default function Assistant({ user }: { user: SessionUser }) {
   const clear = () => {
     abort.current?.abort()
     setTurns([])
-    setConversation(crypto.randomUUID())
+    setConversation(newConversationId())
   }
 
   const readyKeys = (keys ?? []).filter(usable)
