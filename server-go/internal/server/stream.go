@@ -390,7 +390,11 @@ func (a *App) streamResponses(w http.ResponseWriter, r *http.Request, ctx *callC
 			return nil
 		}
 	}
-	write(encoder.Finish(acc.usage))
+	// Stored before response.completed goes out: a client that continues the conversation the
+	// moment it reads that event must find the response already there.
+	final := encoder.Finish(acc.usage)
+	a.rememberResponse(ctx, encoder.Final)
+	write(final)
 	a.finalizeTrace(ctx.Trace, ctx.Start, "ok",
 		acc.content(), acc.usage, acc.finish, "", acc.toolCalls())
 	return nil

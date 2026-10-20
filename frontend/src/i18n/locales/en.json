@@ -1069,7 +1069,9 @@
       "autoRefresh": "Auto refresh",
       "autoRefreshFirstPage": "The live tail follows the newest records, so it runs on the first page only",
       "empty": "No calls recorded yet — send one from the Playground",
-      "emptyFiltered": "No traces match these filters — widen them or clear the filters"
+      "emptyFiltered": "No traces match these filters — widen them or clear the filters",
+      "background": "background",
+      "backgroundHint": "A task the client runs for itself (for example Copilot CLI checking whether you sound frustrated), not a question you asked. Routed to the default model without a decision."
     },
     "filter": {
       "date": "Date",

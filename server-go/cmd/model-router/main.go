@@ -27,6 +27,7 @@ import (
 	"github.com/satomic/model-router/server-go/internal/directory"
 	"github.com/satomic/model-router/server-go/internal/ghcache"
 	"github.com/satomic/model-router/server-go/internal/release"
+	"github.com/satomic/model-router/server-go/internal/respstore"
 	"github.com/satomic/model-router/server-go/internal/server"
 	"github.com/satomic/model-router/server-go/internal/traces"
 	"github.com/satomic/model-router/server-go/internal/usagestats"
@@ -112,6 +113,8 @@ func main() {
 	store := authstore.New(config.DataDir)
 	// Built-in users and user groups, consulted by sign-in, every policy and the session check.
 	directory.Use(directory.New(config.DataDir))
+	// Responses API conversations, so a client can continue one with previous_response_id.
+	respstore.Use(respstore.New(config.DataDir))
 	app := server.New(cfg, traceStore, store, filepath.Join(config.Root, "frontend", "dist"))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

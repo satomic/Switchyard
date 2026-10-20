@@ -24,7 +24,23 @@ func TestExtractUserPromptSkipsClientReminders(t *testing.T) {
 		t.Errorf("with nothing else, the reminder is still better than nothing: %q", got)
 	}
 	mixed := "<system_reminder>note</system_reminder>\nPlease also add tests"
-	if got := ExtractUserPrompt([]any{userMessage(task), userMessage(mixed)}); got != mixed {
-		t.Errorf("a message with real text after a reminder is the person's: %q", got)
+	if got := ExtractUserPrompt([]any{userMessage(task), userMessage(mixed)}); got != "Please also add tests" {
+		t.Errorf("a message with real text around a reminder is the person's, minus the reminder: %q", got)
+	}
+}
+
+// VS Code Copilot Chat 0.71 appends the reminder inside the user's own message.
+func TestExtractUserPromptStripsInlineReminder(t *testing.T) {
+	msg := "<current_datetime>2026-10-19T22:46:37.988+08:00</current_datetime>\n\n要一个英文版的\n\n" +
+		"<system_reminder>\nReminder: This chat currently has an auto-generated title. call `rename_chat`\n</system_reminder>"
+	got := ExtractUserPrompt([]any{userMessage(msg)})
+	if got != "<current_datetime>2026-10-19T22:46:37.988+08:00</current_datetime>\n\n要一个英文版的" {
+		t.Errorf("the reminder must go and the timestamp stay (it identifies the request): %q", got)
+	}
+	if DecisionPrompt(got) != "要一个英文版的" {
+		t.Errorf("the decision input is the request alone: %q", DecisionPrompt(got))
+	}
+	if got := ExtractUserPrompt([]any{userMessage("fix it <system_reminder>unclosed note")}); got != "fix it" {
+		t.Errorf("an unclosed reminder runs to the end and is removed: %q", got)
 	}
 }

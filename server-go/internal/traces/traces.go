@@ -92,6 +92,8 @@ func summarize(trace *omap.Map) *omap.Map {
 		"status", trace.Value("status"),
 		"stream", request.Bool("stream", false),
 		"prompt_preview", trace.Value("prompt_preview"),
+		// A task the client ran for itself (Copilot's background classifiers), not a question.
+		"background", trace.Bool("background", false),
 	)
 }
 

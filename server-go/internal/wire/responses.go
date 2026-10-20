@@ -9,10 +9,9 @@ package wire
 //
 // What does not cross, and why:
 //
-//   - `previous_response_id` and server-side conversation state. This router keeps no response
-//     store, and the next turn of a conversation may be routed to a different model or a different
-//     connection, so there is nothing to continue from. Refused up front with a 400 that says to
-//     resend the full input (which is what a client running with `store: false` already does).
+//   - Server-side state is not handled here. `previous_response_id`, `conversation` and
+//     `item_reference` are resolved by the server from the router's own store (internal/respstore)
+//     before this converter runs, so it always sees a complete list of items.
 //   - Reasoning items. Their encrypted content is only meaningful to the model that produced it,
 //     and the next turn may be routed elsewhere. They are dropped from the input.
 //   - Hosted tools (web_search, file_search, code_interpreter, ...). They run inside OpenAI's own
@@ -43,6 +42,10 @@ type ResponsesRequest struct {
 	Dropped []string
 	// Echo is the request fields a `response` object repeats back (instructions, tools, ...).
 	Echo *omap.Map
+	// ResponseID is the id the answer will carry, fixed up front so it can be stored under it.
+	ResponseID string
+	// Store is false when the client asked for `store: false`: the response is not kept.
+	Store bool
 }
 
 // responsesText flattens a Responses content value (a string or a list of parts) to text.
@@ -128,17 +131,11 @@ func toolOutputText(output any) string {
 // ResponsesRequestToOpenAI converts a Responses API request body into the canonical
 // chat-completions payload.
 func ResponsesRequestToOpenAI(body *omap.Map) (*ResponsesRequest, error) {
-	if id := body.Str("previous_response_id"); id != "" {
-		return nil, fmt.Errorf("previous_response_id is not supported by this router: it keeps no " +
-			"response store, and the next turn may be routed to another model. Send the whole " +
-			"conversation in `input` instead (store: false)")
-	}
-	if body.Value("conversation") != nil {
-		return nil, fmt.Errorf("conversation is not supported by this router; send the whole " +
-			"conversation in `input` instead")
-	}
 
-	req := &ResponsesRequest{CustomTools: map[string]bool{}, Echo: omap.New()}
+	req := &ResponsesRequest{
+		CustomTools: map[string]bool{}, Echo: omap.New(),
+		ResponseID: NewID("resp_"), Store: body.Bool("store", true),
+	}
 	dropped := map[string]bool{}
 	messages := []any{}
 
@@ -212,8 +209,8 @@ func ResponsesRequestToOpenAI(body *omap.Map) (*ResponsesRequest, error) {
 			case "reasoning":
 				dropped["reasoning items"] = true
 			case "item_reference":
-				return nil, fmt.Errorf("item_reference is not supported by this router: it keeps no " +
-					"response store. Send the referenced item itself")
+				// Resolved by the server before conversion; one left here names an unknown item.
+				return nil, fmt.Errorf("item %q was not found", item.Str("id"))
 			default:
 				dropped[kind+" items"] = true
 			}
@@ -306,7 +303,8 @@ func ResponsesRequestToOpenAI(body *omap.Map) (*ResponsesRequest, error) {
 		req.Dropped = append(req.Dropped, name)
 	}
 	for _, field := range []string{"instructions", "tools", "tool_choice", "parallel_tool_calls",
-		"text", "reasoning", "temperature", "top_p", "max_output_tokens", "metadata", "store", "truncation", "user"} {
+		"text", "reasoning", "temperature", "top_p", "max_output_tokens", "metadata", "store", "truncation", "user",
+		"previous_response_id"} {
 		if body.Has(field) {
 			req.Echo.Set(field, body.Value(field))
 		}
@@ -424,7 +422,11 @@ func OpenAIResponseToResponses(data *omap.Map, model string, req *ResponsesReque
 		output = append(output, callItem(NewID("fc_"), callID, fn.Str("name"), fn.Str("arguments"), "completed", custom))
 	}
 	finish := choice.Str("finish_reason")
-	return responseObject(NewID("resp_"), model, statusFor(finish), time.Now().Unix(), output,
+	id := NewID("resp_")
+	if req != nil && req.ResponseID != "" {
+		id = req.ResponseID
+	}
+	return responseObject(id, model, statusFor(finish), time.Now().Unix(), output,
 		ResponsesUsage(data.Map("usage")), req)
 }
 
@@ -455,6 +457,9 @@ type ResponsesEncoder struct {
 	calls []*streamCall       // in output order
 	byIdx map[int]*streamCall // chat tool_call index -> call
 	order map[int]*omap.Map   // output index -> finished item
+
+	// Final is the completed response object, set by Finish, for the caller to store.
+	Final *omap.Map
 }
 
 type streamCall struct {
@@ -466,8 +471,12 @@ type streamCall struct {
 }
 
 func NewResponsesEncoder(model string, req *ResponsesRequest) *ResponsesEncoder {
+	id := NewID("resp_")
+	if req != nil && req.ResponseID != "" {
+		id = req.ResponseID
+	}
 	return &ResponsesEncoder{
-		id: NewID("resp_"), model: model, createdAt: time.Now().Unix(), req: req,
+		id: id, model: model, createdAt: time.Now().Unix(), req: req,
 		textIdx: -1, byIdx: map[int]*streamCall{}, order: map[int]*omap.Map{},
 	}
 }
@@ -635,7 +644,8 @@ func (e *ResponsesEncoder) Finish(usage *omap.Map) []string {
 	if status == "incomplete" {
 		name = "response.incomplete"
 	}
-	frames = append(frames, e.emit(name, mapOf("response", e.envelope(status, output, ResponsesUsage(usage)))))
+	e.Final = e.envelope(status, output, ResponsesUsage(usage))
+	frames = append(frames, e.emit(name, mapOf("response", e.Final)))
 	return frames
 }
 

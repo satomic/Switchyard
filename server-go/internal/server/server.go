@@ -226,6 +226,18 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/chat/completions", wrap(a.chatCompletions))
 	mux.HandleFunc("POST /v1/messages", wrap(a.anthropicMessages))
 	mux.HandleFunc("POST /v1/responses", wrap(a.responsesCreate))
+	// The Responses API's server-side state: stored responses and the Conversations API.
+	mux.HandleFunc("GET /v1/responses/{id}", wrap(a.getResponse))
+	mux.HandleFunc("DELETE /v1/responses/{id}", wrap(a.deleteResponse))
+	mux.HandleFunc("GET /v1/responses/{id}/input_items", wrap(a.listResponseInputItems))
+	mux.HandleFunc("POST /v1/conversations", wrap(a.createConversation))
+	mux.HandleFunc("GET /v1/conversations/{id}", wrap(a.getConversation))
+	mux.HandleFunc("POST /v1/conversations/{id}", wrap(a.updateConversation))
+	mux.HandleFunc("DELETE /v1/conversations/{id}", wrap(a.deleteConversation))
+	mux.HandleFunc("GET /v1/conversations/{id}/items", wrap(a.listConversationItems))
+	mux.HandleFunc("POST /v1/conversations/{id}/items", wrap(a.createConversationItems))
+	mux.HandleFunc("GET /v1/conversations/{id}/items/{item_id}", wrap(a.getConversationItem))
+	mux.HandleFunc("DELETE /v1/conversations/{id}/items/{item_id}", wrap(a.deleteConversationItem))
 	mux.HandleFunc("GET /v1/models", wrap(a.listModels))
 
 	// Authentication.

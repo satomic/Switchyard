@@ -4,7 +4,9 @@
 |---|---|
 | `POST /v1/chat/completions` | OpenAI-compatible, streaming supported. **Requires an API key**; optional `x-interaction-id` (one decision and one trace per user interaction) and `x-session-id` (session stickiness); response headers include `x-trace-id` (the *interaction's* trace) / `x-routed-model` / `x-router-reason` / `x-router-decision-ms`, plus `x-router-interaction-id` when the request carried one |
 | `POST /v1/messages` | Anthropic Messages-compatible, streaming supported, so a client configured with `ANTHROPIC_BASE_URL` pointing here works unchanged. **Requires an API key**, accepted from either `x-api-key` or `Authorization: Bearer` because the two ecosystems send different headers. Same routing, same stickiness headers and same response headers as `/v1/chat/completions`; the body's `model` is ignored, since the router picks the model |
-| `POST /v1/responses` | OpenAI Responses-compatible, streaming supported, so a client that speaks only the Responses API (Copilot CLI with `COPILOT_PROVIDER_WIRE_API=responses`, Codex, `responses.create` in the OpenAI SDKs) works unchanged. **Requires an API key**. Same routing, stickiness and response headers as `/v1/chat/completions`. Stateless: `previous_response_id`, `conversation` and `item_reference` are refused with a `400`, so send the whole conversation in `input` (`store: false`). See [The Responses API](#the-responses-api) |
+| `POST /v1/responses` | OpenAI Responses-compatible, streaming supported, so a client that speaks only the Responses API (Copilot CLI with `COPILOT_PROVIDER_WIRE_API=responses`, Codex, `responses.create` in the OpenAI SDKs) works unchanged. **Requires an API key**. Same routing, stickiness and response headers as `/v1/chat/completions`. Stateful like OpenAI's: `previous_response_id`, `conversation` and `item_reference` work (since 2.5.2), and `store: false` keeps nothing. See [The Responses API](#the-responses-api) |
+| `GET /v1/responses/{id}`, `DELETE /v1/responses/{id}`, `GET /v1/responses/{id}/input_items` | read back, delete, or list the input of a stored response (API key; the key's owner only) |
+| `POST /v1/conversations`, `GET/POST/DELETE /v1/conversations/{id}`, `GET/POST /v1/conversations/{id}/items`, `GET/DELETE /v1/conversations/{id}/items/{item_id}` | the Conversations API (API key; the key's owner only) |
 | `GET /v1/models` | the available backend models (requires an API key), **narrowed to what the key's owner may use** under the [model policy](model-policy.md) and then by that key's own [scope](#api-key-scopes) |
 | `GET /v1/models/available` | the signed-in user's effective model list and why it looks that way: the resolved names, the catalog descriptions, the default model, a `reason`, and the grants that applied. Resolved through the same code the API path uses, so it cannot disagree with a real request. Available to **every** signed-in user, and returns no trace of the teams or organizations they are not in |
 | `GET /v1/auth/status` | what the frontend uses to choose between the setup page, the sign-in page and the console |
@@ -69,7 +71,7 @@ mapping: [Backend connections](providers.md).
 rendered back as a `response` object, or, with `stream: true`, as Responses events
 (`response.created`, `response.output_text.delta`, `response.function_call_arguments.delta`,
 `response.completed`, ...). Conformance is tested with the official OpenAI Python SDK, which parses
-every object and event strictly, and with GitHub Copilot CLI.
+every object and event strictly, with GitHub Copilot CLI and with VS Code Copilot Chat.
 
 | Responses request | Becomes |
 |---|---|
@@ -88,9 +90,30 @@ Not forwarded, and listed under `request.dropped` in the trace:
 * **Hosted tools** (`web_search`, `file_search`, `code_interpreter`, ...). They run inside OpenAI's
   own service, which a routed backend is not.
 
-Refused with a `400`, because the router keeps no response store and the next turn may go
-elsewhere: `previous_response_id`, `conversation`, `item_reference`. Clients that run with
-`store: false` (Copilot CLI and Codex do) already send the whole conversation every turn.
+### Server-side state (since 2.5.2)
+
+A Responses client may expect the server to remember a conversation. VS Code Copilot Chat does: it
+answers the first turn normally and continues a tool loop with `previous_response_id` plus only the
+tool results. The upstream can't hold that state. The router converts every request to chat
+completions, and the next turn may go to another model on another connection. So the router keeps
+it, in Responses form:
+
+| Mechanism | What the router does |
+|---|---|
+| `previous_response_id` | puts the stored history of that response in front of the new input, then routes the whole conversation. A turn can still go to any model, because the history is converted afresh for it |
+| `item_reference` | replaces the reference with the stored item it names |
+| `conversation` | puts the conversation's items in front of the input, and appends the turn (input and output) to the conversation afterwards |
+| `GET`/`DELETE /v1/responses/{id}`, `GET /v1/responses/{id}/input_items` | read back from the store (`order`, `after`, `limit` as OpenAI's) |
+| Conversations API | create, retrieve, update metadata, delete; add, list, retrieve and delete items |
+| `store: false` | the response is not kept (Copilot CLI and Codex send this, and resend the whole conversation every turn). A turn in a named conversation is still appended to it |
+| `background: true` | refused with a `400`: asynchronous runs aren't supported |
+
+Everything belongs to the user whose API key created it; another user gets "not found" for the same
+id. Responses and conversations live in `data/responses/` and `data/conversations/` (files readable
+by the router's user only), survive a restart, are shared by workers on the same `data/`, and expire
+after 7 days without use. Instructions are not stored: as in OpenAI's API they don't carry over from
+one response to the next, and the client sends them with each request. Reasoning items in a stored
+history are dropped when it is converted, like any reasoning item.
 
 The same custom-tool bridge applies on `/v1/chat/completions`: a `{"type": "custom"}` tool, which
 Copilot CLI sends in GPT-5 mode, is declared to the backend as a function and the call is returned as

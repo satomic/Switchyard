@@ -52,6 +52,11 @@ func (e *Error) Error() string { return e.Message }
 // sharedTransport is one connection pool for every upstream. Reusing it across clients is
 // what makes a reconfigured provider cheap: the TLS handshakes already made to an unchanged
 // host stay usable.
+//
+// Idle connections are kept for three minutes: long enough that a decision engine or a model used
+// every few minutes usually finds a warm connection -- a cold TLS handshake to a distant region
+// costs about a second, and through some proxies it occasionally stalls outright -- and short of
+// the roughly four minutes after which Azure's load balancers silently drop an idle connection.
 var sharedTransport = &http.Transport{
 	Proxy: http.ProxyFromEnvironment,
 	DialContext: (&net.Dialer{
@@ -61,7 +66,7 @@ var sharedTransport = &http.Transport{
 	ForceAttemptHTTP2:     true,
 	MaxIdleConns:          512,
 	MaxIdleConnsPerHost:   128,
-	IdleConnTimeout:       90 * time.Second,
+	IdleConnTimeout:       3 * time.Minute,
 	TLSHandshakeTimeout:   15 * time.Second,
 	ExpectContinueTimeout: 1 * time.Second,
 }

@@ -20,6 +20,9 @@ export interface TraceSummary {
   status: string
   stream: boolean
   prompt_preview: string
+  /** A task the client ran for itself (e.g. Copilot CLI's background classifier), not a question
+   *  the person asked. Routed to the default model without a decision. */
+  background?: boolean
 }
 
 export interface RuleStep {

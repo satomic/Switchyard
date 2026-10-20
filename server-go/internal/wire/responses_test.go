@@ -71,12 +71,9 @@ func TestResponsesRequestToOpenAIAgentTurn(t *testing.T) {
 	}
 }
 
-func TestResponsesRequestRefusesServerState(t *testing.T) {
-	if _, err := ResponsesRequestToOpenAI(parse(t, `{"input": "hi", "previous_response_id": "resp_1"}`)); err == nil {
-		t.Error("previous_response_id cannot be honoured without a response store and must be refused")
-	}
-	if _, err := ResponsesRequestToOpenAI(parse(t, `{"model": "x"}`)); err == nil {
-		t.Error("a request without input must be refused")
+func TestResponsesRequestNeedsCompleteInput(t *testing.T) {
+	if _, err := ResponsesRequestToOpenAI(parse(t, `{"input": [{"type": "item_reference", "id": "msg_x"}]}`)); err == nil {
+		t.Error("an item reference the server could not resolve must be refused")
 	}
 	req, err := ResponsesRequestToOpenAI(parse(t, `{"input": "hello"}`))
 	if err != nil || req.Payload.Slice("messages")[0].(*omap.Map).Str("content") != "hello" {

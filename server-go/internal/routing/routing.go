@@ -21,24 +21,35 @@ import (
 // block of context.
 var userRequestRE = regexp.MustCompile(`(?s)<userRequest>\s*(.*?)\s*</userRequest>`)
 
-// A user-role message that is only a client's own reminder, not something the person typed.
-// Copilot CLI in GPT-5 mode appends one after the real request on every turn (a fixed note about
-// deferred tools). Taken as "the latest user message" it made every task look identical: the
-// decision model routed the reminder instead of the request, and the derived interaction id merged
-// unrelated tasks into one trace stuck to the first decision.
+// Client-injected text inside a user message, which is not what the person asked.
+//
+// Copilot appends a <system_reminder> to the user's own message (VS Code Copilot Chat 0.71: "give
+// this chat a title"), or sends one as a user message of its own (Copilot CLI in GPT-5 mode: a
+// fixed note about deferred tools). Left in, the decision model routes the reminder rather than
+// the request, keyword rules match words the person never wrote, and a reminder that is identical
+// on every turn makes unrelated requests look the same.
 var reminderRE = regexp.MustCompile(`(?s)<system[_-]reminder>.*?</system[_-]reminder>`)
 
-func isClientReminder(text string) bool {
-	trimmed := strings.TrimSpace(text)
-	if trimmed == "" {
-		return false
+// datetimeRE is the timestamp Copilot prefixes to every user message. It is kept in the prompt the
+// router identifies an interaction by -- it is what tells two identical questions apart -- and
+// removed from what the decision model and the trace list see.
+var datetimeRE = regexp.MustCompile(`(?s)<current_datetime>.*?</current_datetime>`)
+
+// stripReminders removes reminder blocks, including an unclosed one that runs to the end.
+func stripReminders(text string) string {
+	text = reminderRE.ReplaceAllString(text, "")
+	for _, open := range []string{"<system_reminder>", "<system-reminder>"} {
+		if i := strings.Index(text, open); i >= 0 {
+			text = text[:i]
+		}
 	}
-	if strings.TrimSpace(reminderRE.ReplaceAllString(trimmed, "")) == "" {
-		return true
-	}
-	// An unclosed reminder that opens the message is still the client's, not the person's.
-	return (strings.HasPrefix(trimmed, "<system_reminder>") || strings.HasPrefix(trimmed, "<system-reminder>")) &&
-		!strings.Contains(trimmed, "</system")
+	return strings.TrimSpace(text)
+}
+
+// DecisionPrompt is the request as the person wrote it: the prompt without the client's timestamp.
+// What the decision model and the rules read, and what the trace list previews.
+func DecisionPrompt(prompt string) string {
+	return strings.TrimSpace(datetimeRE.ReplaceAllString(prompt, ""))
 }
 
 func messageText(msg *omap.Map) string {
@@ -55,9 +66,9 @@ func messageText(msg *omap.Map) string {
 	return omap.AsString(content)
 }
 
-// ExtractUserPrompt takes the latest user message as the routing input; when it contains a
-// <userRequest> tag, only the real question is kept. Messages that are nothing but a client
-// reminder are skipped, unless there is nothing else.
+// ExtractUserPrompt takes the latest user message as the routing input, with client reminders
+// removed; when it contains a <userRequest> tag, only the real question is kept. A message that is
+// nothing but a reminder is skipped, unless there is nothing else.
 func ExtractUserPrompt(messages []any) string {
 	fallback := ""
 	for i := len(messages) - 1; i >= 0; i-- {
@@ -65,10 +76,11 @@ func ExtractUserPrompt(messages []any) string {
 		if !ok || msg.Str("role") != "user" {
 			continue
 		}
-		text := messageText(msg)
-		if isClientReminder(text) {
+		raw := messageText(msg)
+		text := stripReminders(raw)
+		if text == "" {
 			if fallback == "" {
-				fallback = text
+				fallback = strings.TrimSpace(raw)
 			}
 			continue
 		}

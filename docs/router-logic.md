@@ -59,6 +59,27 @@ original prompt — for a four-call loop that was ~8 s of pure added latency and
 tokens, for a decision that could not legitimately come out differently. With it, the model is
 chosen once and held for the rest of the interaction.
 
+**The header is scoped to the user's latest message** (since 2.5.2). VS Code Copilot Chat 0.71
+keeps one `x-interaction-id` for the whole chat window and marks every request
+`x-initiator: agent`, so the header alone folded every prompt of a chat into its first one: one
+decision and one trace for the whole conversation. The interaction key is therefore the header plus
+a short hash of the latest user message. A tool-call loop resends that message unchanged, including
+Copilot's `<current_datetime>` stamp, so the loop stays one interaction. The next prompt is a new
+message and gets its own decision and its own trace. Clients that already send a new id per prompt
+are unaffected.
+
+**A client's background tasks are not routed.** A request marked `x-interaction-type: …background`
+(Copilot CLI asks a model, alongside each new message, whether the user sounds frustrated) goes to
+the default model, within the caller's model policy and key scope, without a decision. Its trace
+has reason `client-background` and is labelled as background in the trace list.
+
+**Client reminders are not the request.** Copilot puts `<system_reminder>` blocks inside or after the
+user's message (for example "give this chat a title"), and a `<current_datetime>` stamp before it.
+Reminders are removed before anything reads the prompt. The timestamp is kept for the interaction
+key, which uses it to tell two identical questions apart, and removed from what the rules and the
+decision model see and from the trace list's preview. The trace still stores the messages exactly as
+sent.
+
 **The Copilot CLI over BYOK sends none of these headers** (Go backend). It talks through the stock
 OpenAI SDK, and neither its headers nor its body carry a session or interaction id. What it does send
 is `x-initiator`: `user` on the turn a person typed, `agent` on every follow-up of the tool-call

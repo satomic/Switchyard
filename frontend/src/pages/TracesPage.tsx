@@ -879,7 +879,16 @@ export default function TracesPage({ user }: { user: SessionUser }) {
                   {row.total_ms != null ? `${(row.total_ms / 1000).toFixed(1)}s` : '—'}
                 </td>
                 <td className="truncate"><span className={`badge ${row.status}`}>{row.status}</span></td>
-                <td className="truncate dim">{row.prompt_preview}</td>
+                <td className="truncate dim">
+                  {/* Said up front, so a client's own bookkeeping is not read as a question the
+                      person asked. */}
+                  {row.background && (
+                    <span className="badge" title={t('traces.list.backgroundHint')} style={{ marginRight: 6 }}>
+                      {t('traces.list.background')}
+                    </span>
+                  )}
+                  {row.prompt_preview}
+                </td>
                 {user.is_admin && (
                   <td>
                     {/* stopPropagation, or deleting a row would also navigate to it */}

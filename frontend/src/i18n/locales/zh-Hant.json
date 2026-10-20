@@ -1045,7 +1045,9 @@
       "autoRefresh": "自動重新整理",
       "autoRefreshFirstPage": "即時更新跟隨最新紀錄，因此僅在第一頁生效",
       "empty": "尚無呼叫記錄 — 到「測試台」發一條請求試試",
-      "emptyFiltered": "沒有符合目前篩選條件的鏈路 — 放寬條件或清空篩選"
+      "emptyFiltered": "沒有符合目前篩選條件的鏈路 — 放寬條件或清空篩選",
+      "background": "背景",
+      "backgroundHint": "用戶端自行發起的背景任務（例如 Copilot CLI 判斷你是否不滿），不是你提出的問題。不做路由決策，直接使用預設模型。"
     },
     "filter": {
       "date": "日期",

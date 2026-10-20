@@ -97,6 +97,46 @@ func derivedInteractionID(r *http.Request, key *omap.Map, prompt string) any {
 	return "derived-" + hex.EncodeToString(sum[:8])
 }
 
+// scopedInteractionID narrows a client's interaction id to one request of the person's.
+//
+// Copilot Chat up to 0.68 sent a fresh x-interaction-id with every prompt, so the header alone
+// delimited an interaction. VS Code Copilot Chat 0.71 keeps one id for the whole chat window and
+// marks every request `x-initiator: agent`, so the header alone folded every prompt of a chat into
+// the first one: one routing decision for the whole conversation, one trace for all of it.
+//
+// The latest user message is what tells them apart. Within a tool-call loop it is resent unchanged
+// -- Copilot's <current_datetime> stamp included -- so the loop stays one interaction; the next
+// prompt is a new message with a new stamp, and gets its own decision and its own trace. For a
+// client that already sends a new id per prompt this changes nothing.
+func scopedInteractionID(id, prompt string) any {
+	if strings.TrimSpace(prompt) == "" {
+		return id
+	}
+	sum := sha256.Sum256([]byte(prompt))
+	return id + ":" + hex.EncodeToString(sum[:4])
+}
+
+// backgroundRoute sends a client's background task to the default model, without a decision.
+//
+// Copilot CLI asks a model, alongside every new message, whether the person sounds frustrated with
+// the assistant (`x-interaction-type: conversation-background`, a classifier prompt that pairs the
+// previous message with the current one). It is the client's own bookkeeping: running the AI
+// decision on it adds the decision's latency and cost, and routed it to a large model for a
+// one-line classification. The default model -- within the caller's model policy and key scope --
+// is what such a task is for. Not bound for stickiness: it belongs to no conversation turn.
+func backgroundRoute(cfg *config.RouterConfig, allowed []string, interactionType string) (string, string, *omap.Map) {
+	view := cfg
+	if allowed != nil {
+		view = cfg.RestrictedTo(allowed)
+	}
+	model := view.DefaultModel()
+	return model, "client-background", mapOf(
+		"type", "client-background",
+		"interaction_type", interactionType,
+		"note", "a background task the client runs for itself; routed to the default model without a decision",
+	)
+}
+
 func headerOrNil(r *http.Request, name string) any {
 	if value := r.Header.Get(name); value != "" {
 		return value
@@ -131,6 +171,8 @@ type callContext struct {
 	// Responses is set when the caller spoke the Responses API: the response side needs to know
 	// which tools were declared as custom, and which request fields to echo back.
 	Responses *wire.ResponsesRequest
+	// ResponsesState is what has to be stored once a Responses answer is in (responses_state.go).
+	ResponsesState *responsesState
 	// CustomTools names the chat-completions custom tools that were declared upstream as
 	// functions, so calls to them go back to the caller as custom calls.
 	CustomTools map[string]bool
@@ -197,48 +239,6 @@ func (a *App) anthropicMessages(w http.ResponseWriter, r *http.Request) error {
 	return a.serve(w, r, ctx)
 }
 
-// responsesCreate is the OpenAI Responses API entry point (POST /v1/responses), so a client that
-// only speaks Responses -- Copilot CLI with COPILOT_PROVIDER_WIRE_API=responses, Codex, the OpenAI
-// SDKs' responses.create -- works unchanged. Converted to the canonical chat payload like the
-// Anthropic door; see internal/wire/responses.go for what does not cross.
-func (a *App) responsesCreate(w http.ResponseWriter, r *http.Request) error {
-	key, err := a.apiKey(r)
-	if err != nil {
-		return err
-	}
-	start := time.Now()
-	raw, err := readJSONObject(r)
-	if err != nil {
-		return err
-	}
-	converted, err := wire.ResponsesRequestToOpenAI(raw)
-	if err != nil {
-		return errorf(http.StatusBadRequest, "%s", err.Error())
-	}
-	ctx, err := a.prepareCall(r, converted.Payload, key, start, "responses")
-	if err != nil {
-		return err
-	}
-	ctx.Responses = converted
-	if len(converted.Dropped) > 0 {
-		items := make([]any, len(converted.Dropped))
-		for i, name := range converted.Dropped {
-			items[i] = name
-		}
-		ctx.Trace.Map("request").Set("dropped", items)
-	}
-	if ctx.Gated {
-		return a.serveGated(w, r, ctx)
-	}
-	// A Responses stream ends with the usage in response.completed, and an OpenAI-protocol
-	// upstream only streams usage when asked to. Asked here rather than for every caller, so the
-	// two older doors keep sending exactly what they always sent.
-	if ctx.Payload.Bool("stream", false) && ctx.Resolved.Provider.Protocol() != "anthropic" && ctx.Resolved.API != "responses" {
-		ctx.Payload.Set("stream_options", mapOf("include_usage", true))
-	}
-	return a.serve(w, r, ctx)
-}
-
 // prepareCall is everything both entry points do before an upstream is touched: resolve what
 // the caller may use, route, build the trace, build the response headers.
 //
@@ -253,9 +253,15 @@ func (a *App) prepareCall(r *http.Request, body, key *omap.Map, start time.Time,
 	messages := body.Slice("messages")
 	prompt := routing.ExtractUserPrompt(messages)
 	interaction := interactionID(r)
-	if interaction == nil {
+	if interaction != nil {
+		interaction = scopedInteractionID(omap.AsString(interaction), prompt)
+	} else {
 		interaction = derivedInteractionID(r, key, prompt)
 	}
+	// What the person asked, without the client's timestamp: the decision model, the rules and the
+	// trace list read this. The identity above keeps the timestamp, which is what tells two
+	// identical questions apart.
+	asked := routing.DecisionPrompt(prompt)
 	sessionID := strings.TrimSpace(r.Header.Get("x-session-id"))
 
 	// The AI-credit gate comes before everything else on purpose: while the caller's Copilot
@@ -263,7 +269,7 @@ func (a *App) prepareCall(r *http.Request, body, key *omap.Map, start time.Time,
 	// to the decision model, so it costs nothing on any upstream. Administrators are gated too --
 	// the point is the customer's budget, not a privilege boundary.
 	if gated := aicredits.Gate(cfg, userID); gated != nil {
-		return a.gatedContext(r, body, key, sessionID, start, clientProtocol, gated, prompt, interaction), nil
+		return a.gatedContext(r, body, key, sessionID, start, clientProtocol, gated, asked, interaction), nil
 	}
 
 	// The caller's effective model set, resolved before anything routes. An empty list is a
@@ -287,7 +293,16 @@ func (a *App) prepareCall(r *http.Request, body, key *omap.Map, start time.Time,
 				"widen its scope on the API keys page (scope: %s)", keyscope.Describe(scope))
 	}
 
-	model, reason, decisionMS, analysis := a.decideModel(r.Context(), cfg, prompt, sessionID, interaction, allowed)
+	interactionType := strings.TrimSpace(r.Header.Get("x-interaction-type"))
+	background := strings.Contains(strings.ToLower(interactionType), "background")
+	var model, reason string
+	var decisionMS float64
+	var analysis *omap.Map
+	if background {
+		model, reason, analysis = backgroundRoute(cfg, allowed, interactionType)
+	} else {
+		model, reason, decisionMS, analysis = a.decideModel(r.Context(), cfg, asked, sessionID, interaction, allowed)
+	}
 	resolved := cfg.ResolveModel(model)
 
 	payload := omap.New()
@@ -341,9 +356,14 @@ func (a *App) prepareCall(r *http.Request, body, key *omap.Map, start time.Time,
 		// always canonical: "the answer came back in a shape my client could not read" is
 		// otherwise impossible to diagnose from a trace.
 		"client_protocol", clientProtocol,
+		// The client's own label for the request (Copilot: conversation-user, conversation-agent,
+		// conversation-background, ...). A background one is a task the client runs for itself,
+		// not something the person asked; the console marks it so.
+		"interaction_type", nilIfBlank(interactionType),
+		"background", background,
 		"strategy", cfg.Strategy,
 		"sticky", cfg.Sticky,
-		"prompt_preview", headRunes(prompt, 120),
+		"prompt_preview", headRunes(asked, 120),
 		"request", mapOf(
 			"headers", sanitizedHeaders(r),
 			"messages", messages,
@@ -759,7 +779,9 @@ func (a *App) finishAndRender(w http.ResponseWriter, completion *omap.Map, ctx *
 		writeJSON(w, http.StatusOK, wire.OpenAIResponseToAnthropic(completion, ctx.Model), ctx.Headers)
 		return nil
 	case "responses":
-		writeJSON(w, http.StatusOK, wire.OpenAIResponseToResponses(completion, ctx.Model, ctx.Responses), ctx.Headers)
+		response := wire.OpenAIResponseToResponses(completion, ctx.Model, ctx.Responses)
+		a.rememberResponse(ctx, response)
+		writeJSON(w, http.StatusOK, response, ctx.Headers)
 		return nil
 	}
 	wire.RestoreChatCustomCalls(completion, ctx.CustomTools)
